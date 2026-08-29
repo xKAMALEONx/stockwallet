@@ -100,3 +100,6 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
 - 2026-08-29 — **Phase 0 (mostly done):** scaffolded Next.js+TS+Tailwind (App Router); GitHub repo `xKAMALEONx/stockwallet` (private); deployed to Vercel prod (project `po-1ed7/stockwallet`), live + HTTP 200.
   - TODO (Jaime, dashboard): (1) add **Neon Postgres** via Storage tab; (2) authorize **Vercel GitHub app** to enable push-to-deploy (`vercel git connect` currently fails until then).
   - TODO (Po, next): Prisma setup + first migration; NextAuth GitHub login.
+- 2026-08-29 — **Phase 0 pipeline COMPLETE:** Neon attached (all `POSTGRES_*`/`DATABASE_URL` env vars injected); Vercel↔GitHub connected → **push-to-deploy verified** (push → new prod deploy in ~26s; `stockwallet-git-main` alias present).
+  - Clean prod URL: **https://stockwallet-po-1ed7.vercel.app** (currently behind Vercel Deployment Protection → shows Vercel login to anonymous visitors; Jaime can view logged-in. Decide later: keep protection vs rely on our own NextAuth.)
+  - Remaining Phase 0 dev work (Po): Prisma init against Neon + first migration; NextAuth GitHub login.
