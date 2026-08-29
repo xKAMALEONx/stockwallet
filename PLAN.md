@@ -96,4 +96,7 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
 - [ ] Which brokerage(s) Jaime uses (helps match numbers + future CSV import format)
 
 ## Progress Log
-- 2026-08-29 — Plan drafted. Next up: greenlight Phase 0.
+- 2026-08-29 — Plan drafted. Greenlit: Neon (free), average-cost basis, Robinhood.
+- 2026-08-29 — **Phase 0 (mostly done):** scaffolded Next.js+TS+Tailwind (App Router); GitHub repo `xKAMALEONx/stockwallet` (private); deployed to Vercel prod (project `po-1ed7/stockwallet`), live + HTTP 200.
+  - TODO (Jaime, dashboard): (1) add **Neon Postgres** via Storage tab; (2) authorize **Vercel GitHub app** to enable push-to-deploy (`vercel git connect` currently fails until then).
+  - TODO (Po, next): Prisma setup + first migration; NextAuth GitHub login.
