@@ -35,7 +35,7 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
 - NextAuth GitHub login — only Jaime can enter
 - **Done when:** live URL loads, Jaime logs in, DB connected.
 
-## Phase 1 — Portfolio Core  *(the MVP)*
+## Phase 1 — Portfolio Core  *(the MVP)*  🏗️ in progress
 **Goal:** Enter real trades, see accurate holdings & P/L.
 - Data model: `Account`, `Transaction` (ticker, side, qty, price, fees, date), derived `Position`
 - Manual trade entry (buy/sell) + edit/delete
@@ -112,3 +112,6 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
   - `build` script now runs `prisma generate && next build` (ensures client on Vercel). Local build ✓; deployed ● Ready; verified `/setup` renders (Prisma↔Neon works in prod) and `/` redirects to login.
   - **LAST STEP (Jaime):** open the site → **/setup** → create username+password → scan QR into authenticator → enter code → you're in. That closes Phase 0.
   - Tech debt: Next 16 deprecated `middleware` file → migrate to `proxy` convention later (non-blocking).
+- 2026-08-30 — **Phase 0 CLOSED.** Jaime enrolled at /setup (username+password+TOTP) and logged in. Foundation complete.
+- 2026-08-30 — **Phase 1 core built + deployed.** Migration `add_portfolio` (Account, Transaction, TradeSide enum). Average-cost **engine** `src/lib/portfolio.ts` (`computePositions`/`withQuotes`/`summarize`) with **10 vitest tests passing** (`src/lib/portfolio.test.ts`, `npm test`). Trade CRUD server actions (`src/app/portfolio-actions.ts`, ownership-scoped). Dashboard `src/app/page.tsx`: summary tiles, holdings table, add-trade form, transactions ledger w/ edit (`/trades/[id]/edit`) + delete. Finnhub quote fetcher `src/lib/quotes.ts` (dormant until `FINNHUB_API_KEY` set). Build ✓, deployed ● Ready, `/login` 200, `/` 307→login.
+  - **Remaining for Phase 1 done:** (1) Jaime adds a **Finnhub** key (Cred Manager `StockWallet_Finnhub`) → Po wires `FINNHUB_API_KEY` → live market value + unrealized P/L. (2) Jaime enters real Robinhood trades and confirms numbers match brokerage.
