@@ -16,10 +16,49 @@ datasource db {
 // ─────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(cuid())
-  username     String   @unique
+  id           String    @id @default(cuid())
+  username     String    @unique
   passwordHash String
   totpSecret   String?
-  totpEnabled  Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  totpEnabled  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  accounts     Account[]
+}
+
+// ─────────────────────────────────────────────
+// Portfolio: brokerage account + transaction ledger
+// Positions are derived from transactions (never stored).
+// ─────────────────────────────────────────────
+
+model Account {
+  id           String        @id @default(cuid())
+  userId       String
+  name         String // e.g. "Robinhood"
+  createdAt    DateTime      @default(now())
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, name])
+}
+
+enum TradeSide {
+  BUY
+  SELL
+}
+
+model Transaction {
+  id        String    @id @default(cuid())
+  accountId String
+  symbol    String // uppercase ticker, e.g. "AAPL"
+  side      TradeSide
+  quantity  Decimal   @db.Decimal(18, 8) // supports fractional shares
+  price     Decimal   @db.Decimal(18, 4) // per-share price
+  fees      Decimal   @default(0) @db.Decimal(18, 4)
+  tradedAt  DateTime
+  note      String?
+  createdAt DateTime  @default(now())
+  account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, symbol])
+  @@index([accountId, tradedAt])
 }
