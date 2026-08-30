@@ -151,7 +151,7 @@ export default async function Dashboard({
               </select>
             </div>
             <Input name="quantity" label="Quantity" type="number" step="any" placeholder="10" required />
-            <Input name="price" label="Price" type="number" step="any" placeholder="150.00" required />
+            <Input name="price" label="Price / share" type="number" step="any" placeholder="150.00" required />
             <Input name="fees" label="Fees" type="number" step="any" placeholder="0" />
             <Input name="tradedAt" label="Date" type="date" defaultValue={today} />
             <div className="col-span-2 flex items-end sm:col-span-1">

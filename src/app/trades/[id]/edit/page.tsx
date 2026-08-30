@@ -64,7 +64,7 @@ export default async function EditTrade({
             required
           />
           <Field
-            label="Price"
+            label="Price / share"
             name="price"
             type="number"
             step="any"
