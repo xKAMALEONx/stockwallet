@@ -150,13 +150,13 @@ export default async function CheckPage({
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-zinc-400">Amount $ (for buys)</span>
+            <span className="text-zinc-400">How much you&apos;ll invest ($)</span>
             <input
               name="amount"
               type="number"
               step="any"
               defaultValue={amountUsd || ""}
-              placeholder="500"
+              placeholder="e.g. 500"
               className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-zinc-100 outline-none focus:border-emerald-500"
             />
           </label>
