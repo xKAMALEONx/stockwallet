@@ -122,3 +122,9 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
 ## Phase 1 → 2 handoff notes
 - Finnhub `/quote` returns `c` (price), `d` (day change $), `dp` (day change %), `pc` (prev close) — day-change comes FREE, no extra call. Use for watchlist + holdings.
 - Finnhub free tier: `/quote` free; `/stock/candle` (for sparklines) is PREMIUM (403 on free) — sparklines need another source or defer.
+
+## Phase 2 progress
+- 2026-09-01 — **Watchlist shipped**: `WatchlistItem` model + migration `add_watchlist`; CRUD (`src/app/watchlist-actions.ts`, `src/lib/watchlist.ts`); dashboard Watchlist section; **day-change %** column added to holdings + watchlist (free from Finnhub `/quote` `dp`). Unified single quote fetch for holdings+watchlist.
+- 2026-09-01/02 — **Secret corruption fixed**: PS5.1 piping into `vercel env add` truncated values → `FINNHUB_API_KEY` was 11 chars (401 Invalid API key; watchlist prices blank) and `AUTH_SECRET` was 11 chars. Re-set BOTH via **Vercel REST API** (clean): Finnhub back to 40 chars, AUTH_SECRET rotated to strong 44-char (invalidated Jaime's session → one re-login, no re-enroll). Lesson saved in TOOLS.md: set Vercel env via API, never piped CLI.
+- 2026-09-02 — **Crypto quotes shipped**: `src/lib/quotes.ts` now routes crypto tickers (map of BTC/ETH/XRP/… → CoinGecko ids) to CoinGecko `simple/price` (free, no key), stocks stay on Finnhub. XRP now prices on holdings + watchlist. Deployed ● Ready.
+  - **Phase 2 remaining:** market open/closed badge; sparklines (deferred — free candle data blocked). Quote caching is currently `fetch` revalidate:30s (fine for single user).
