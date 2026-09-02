@@ -7,6 +7,7 @@ import { getOrCreateDefaultAccount, listTransactions } from "@/lib/trades";
 import { listWatchlist } from "@/lib/watchlist";
 import { computePositions, withQuotes, summarize } from "@/lib/portfolio";
 import { getQuoteData, quotesEnabled } from "@/lib/quotes";
+import { getMarketStatus } from "@/lib/market";
 import { createTrade, deleteTrade } from "@/app/portfolio-actions";
 import { addWatch, removeWatch } from "@/app/watchlist-actions";
 import {
@@ -58,15 +59,32 @@ export default async function Dashboard({
   const withMarket = withQuotes(positions, priceMap);
   const heldWithMarket = withMarket.filter((p) => p.shares.gt(0));
   const summary = summarize(withMarket);
+  const market = getMarketStatus();
   const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="min-h-full bg-zinc-950 font-sans text-zinc-100">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10">
         <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">
-            Stock<span className="text-emerald-400">Wallet</span>
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight">
+              Stock<span className="text-emerald-400">Wallet</span>
+            </h1>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
+                market.open
+                  ? "border-emerald-800 bg-emerald-950/40 text-emerald-300"
+                  : "border-zinc-700 bg-zinc-900 text-zinc-400"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  market.open ? "bg-emerald-400" : "bg-zinc-500"
+                }`}
+              />
+              {market.label}
+            </span>
+          </div>
           <div className="flex items-center gap-4 text-sm text-zinc-400">
             <span>{session.username}</span>
             <form action={logout}>
