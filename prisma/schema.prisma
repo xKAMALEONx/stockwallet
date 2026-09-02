@@ -51,9 +51,9 @@ model Transaction {
   accountId String
   symbol    String // uppercase ticker, e.g. "AAPL"
   side      TradeSide
-  quantity  Decimal   @db.Decimal(18, 8) // supports fractional shares
-  price     Decimal   @db.Decimal(18, 4) // per-share price
-  fees      Decimal   @default(0) @db.Decimal(18, 4)
+  quantity  Decimal   @db.Decimal(28, 10) // fractional shares / crypto amounts
+  price     Decimal   @db.Decimal(20, 8) // per-unit price (crypto needs >4 decimals)
+  fees      Decimal   @default(0) @db.Decimal(20, 8)
   tradedAt  DateTime
   note      String?
   createdAt DateTime  @default(now())
