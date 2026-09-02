@@ -25,6 +25,12 @@ export function shares(v: Numish): string {
   return n.toLocaleString("en-US", { maximumFractionDigits: 8 });
 }
 
+export function percent(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  const s = `${Math.abs(v).toFixed(2)}%`;
+  return v < 0 ? `-${s}` : `+${s}`;
+}
+
 /** Tailwind text color for a gain/loss value. */
 export function pnlColor(v: Numish): string {
   const n = toNum(v);

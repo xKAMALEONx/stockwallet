@@ -4,24 +4,35 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { logout } from "@/app/actions";
 import { getOrCreateDefaultAccount, listTransactions } from "@/lib/trades";
+import { listWatchlist } from "@/lib/watchlist";
 import { computePositions, withQuotes, summarize } from "@/lib/portfolio";
-import { getQuotes, quotesEnabled } from "@/lib/quotes";
+import { getQuoteData, quotesEnabled } from "@/lib/quotes";
 import { createTrade, deleteTrade } from "@/app/portfolio-actions";
-import { money, signedMoney, shares as fmtShares, pnlColor } from "@/lib/format";
+import { addWatch, removeWatch } from "@/app/watchlist-actions";
+import {
+  money,
+  signedMoney,
+  percent,
+  shares as fmtShares,
+  pnlColor,
+} from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; werror?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, werror } = await searchParams;
   const session = await getSession();
   if (!session) redirect("/login");
 
   const account = await getOrCreateDefaultAccount(session.sub);
-  const txns = await listTransactions(account.id);
+  const [txns, watchlist] = await Promise.all([
+    listTransactions(account.id),
+    listWatchlist(session.sub),
+  ]);
 
   const positions = computePositions(
     txns.map((t) => ({
@@ -34,8 +45,17 @@ export default async function Dashboard({
     })),
   );
   const held = positions.filter((p) => p.shares.gt(0));
-  const quotes = await getQuotes(held.map((p) => p.symbol));
-  const withMarket = withQuotes(positions, quotes);
+
+  // One quote fetch for everything (holdings + watchlist).
+  const symbols = [
+    ...new Set([...held.map((p) => p.symbol), ...watchlist.map((w) => w.symbol)]),
+  ];
+  const quoteData = await getQuoteData(symbols);
+
+  const priceMap: Record<string, number | undefined> = {};
+  for (const [sym, q] of Object.entries(quoteData)) priceMap[sym] = q?.price;
+
+  const withMarket = withQuotes(positions, priceMap);
   const heldWithMarket = withMarket.filter((p) => p.shares.gt(0));
   const summary = summarize(withMarket);
   const today = new Date().toISOString().slice(0, 10);
@@ -43,7 +63,6 @@ export default async function Dashboard({
   return (
     <div className="min-h-full bg-zinc-950 font-sans text-zinc-100">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10">
-        {/* Header */}
         <header className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight">
             Stock<span className="text-emerald-400">Wallet</span>
@@ -58,11 +77,7 @@ export default async function Dashboard({
           </div>
         </header>
 
-        {error && (
-          <p className="rounded-md border border-red-900/50 bg-red-950/40 px-4 py-2.5 text-sm text-red-300">
-            {error}
-          </p>
-        )}
+        {error && <ErrorNote>{error}</ErrorNote>}
 
         {/* Summary tiles */}
         <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -89,15 +104,11 @@ export default async function Dashboard({
 
         {/* Holdings */}
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">
-            Holdings
-          </h2>
+          <SectionTitle>Holdings</SectionTitle>
           {heldWithMarket.length === 0 ? (
-            <p className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-6 text-center text-sm text-zinc-500">
-              No open positions yet. Add a trade below to get started.
-            </p>
+            <Empty>No open positions yet. Add a trade below to get started.</Empty>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-zinc-800">
+            <TableWrap>
               <table className="w-full text-sm">
                 <thead className="bg-zinc-900/60 text-left text-xs uppercase tracking-wide text-zinc-500">
                   <tr>
@@ -106,35 +117,92 @@ export default async function Dashboard({
                     <Th right>Avg Cost</Th>
                     <Th right>Cost Basis</Th>
                     <Th right>Price</Th>
+                    <Th right>Day</Th>
                     <Th right>Mkt Value</Th>
                     <Th right>Unrealized</Th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
-                  {heldWithMarket.map((p) => (
-                    <tr key={p.symbol} className="hover:bg-zinc-900/40">
-                      <Td className="font-semibold text-emerald-400">{p.symbol}</Td>
-                      <Td right>{fmtShares(p.shares)}</Td>
-                      <Td right>{money(p.avgCost)}</Td>
-                      <Td right>{money(p.costBasis)}</Td>
-                      <Td right>{money(p.price)}</Td>
-                      <Td right>{money(p.marketValue)}</Td>
-                      <Td right className={pnlColor(p.unrealizedPnL)}>
-                        {signedMoney(p.unrealizedPnL)}
-                      </Td>
-                    </tr>
-                  ))}
+                  {heldWithMarket.map((p) => {
+                    const dp = quoteData[p.symbol]?.changePct ?? null;
+                    return (
+                      <tr key={p.symbol} className="hover:bg-zinc-900/40">
+                        <Td className="font-semibold text-emerald-400">{p.symbol}</Td>
+                        <Td right>{fmtShares(p.shares)}</Td>
+                        <Td right>{money(p.avgCost)}</Td>
+                        <Td right>{money(p.costBasis)}</Td>
+                        <Td right>{money(p.price)}</Td>
+                        <Td right className={pnlColor(dp)}>{percent(dp)}</Td>
+                        <Td right>{money(p.marketValue)}</Td>
+                        <Td right className={pnlColor(p.unrealizedPnL)}>
+                          {signedMoney(p.unrealizedPnL)}
+                        </Td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-            </div>
+            </TableWrap>
           )}
+        </section>
+
+        {/* Watchlist */}
+        <section className="flex flex-col gap-3">
+          <SectionTitle>Watchlist</SectionTitle>
+          {werror && <ErrorNote>{werror}</ErrorNote>}
+          {watchlist.length > 0 && (
+            <TableWrap>
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-900/60 text-left text-xs uppercase tracking-wide text-zinc-500">
+                  <tr>
+                    <Th>Symbol</Th>
+                    <Th right>Price</Th>
+                    <Th right>Day</Th>
+                    <Th>Note</Th>
+                    <Th right>Actions</Th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800">
+                  {watchlist.map((w) => {
+                    const q = quoteData[w.symbol];
+                    return (
+                      <tr key={w.id} className="hover:bg-zinc-900/40">
+                        <Td className="font-semibold">{w.symbol}</Td>
+                        <Td right>{q ? money(q.price) : "—"}</Td>
+                        <Td right className={pnlColor(q?.changePct ?? null)}>
+                          {q ? percent(q.changePct) : "—"}
+                        </Td>
+                        <Td className="text-zinc-400">{w.note ?? ""}</Td>
+                        <Td right>
+                          <form action={removeWatch}>
+                            <input type="hidden" name="id" value={w.id} />
+                            <button className="text-red-400 underline hover:text-red-300">
+                              Remove
+                            </button>
+                          </form>
+                        </Td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableWrap>
+          )}
+          <form
+            action={addWatch}
+            className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4"
+          >
+            <Input name="symbol" label="Add ticker" placeholder="AAPL" required />
+            <Input name="note" label="Note (optional)" placeholder="earnings 5/1" />
+            <button className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
+              Watch
+            </button>
+          </form>
         </section>
 
         {/* Add trade */}
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">
-            Add a trade
-          </h2>
+          <SectionTitle>Add a trade</SectionTitle>
           <form
             action={createTrade}
             className="grid grid-cols-2 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 sm:grid-cols-7"
@@ -164,15 +232,11 @@ export default async function Dashboard({
 
         {/* Transactions ledger */}
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">
-            Transactions
-          </h2>
+          <SectionTitle>Transactions</SectionTitle>
           {txns.length === 0 ? (
-            <p className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-6 text-center text-sm text-zinc-500">
-              No transactions logged yet.
-            </p>
+            <Empty>No transactions logged yet.</Empty>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-zinc-800">
+            <TableWrap>
               <table className="w-full text-sm">
                 <thead className="bg-zinc-900/60 text-left text-xs uppercase tracking-wide text-zinc-500">
                   <tr>
@@ -222,7 +286,7 @@ export default async function Dashboard({
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableWrap>
           )}
         </section>
 
@@ -251,13 +315,37 @@ function Tile({
   );
 }
 
-function Th({
-  children,
-  right,
-}: {
-  children: ReactNode;
-  right?: boolean;
-}) {
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">
+      {children}
+    </h2>
+  );
+}
+
+function Empty({ children }: { children: ReactNode }) {
+  return (
+    <p className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-6 text-center text-sm text-zinc-500">
+      {children}
+    </p>
+  );
+}
+
+function ErrorNote({ children }: { children: ReactNode }) {
+  return (
+    <p className="rounded-md border border-red-900/50 bg-red-950/40 px-4 py-2.5 text-sm text-red-300">
+      {children}
+    </p>
+  );
+}
+
+function TableWrap({ children }: { children: ReactNode }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-zinc-800">{children}</div>
+  );
+}
+
+function Th({ children, right }: { children: ReactNode; right?: boolean }) {
   return (
     <th className={`px-3 py-2 font-medium ${right ? "text-right" : ""}`}>
       {children}
