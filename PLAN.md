@@ -51,7 +51,7 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
 - Market-hours awareness (open/closed indicator)
 - **Done when:** watchlist updates smoothly and stays within API limits.
 
-## Phase 3 — Bet Journal 🎯 + News-Driven Ideas  *(the differentiator)*
+## Phase 3 — Bet Journal 🎯 + News-Driven Ideas  ✅ done  *(the differentiator)*
 **Reshaped 2026-09-02 (Jaime):** wants a **news-recommended stock ideas list** with a **long-term benefit lens** (his goal is long-term investing). Bet Journal folds in as the "log your thesis" layer.
 
 ### Data sourcing spike (done 2026-09-02) — all tested live
@@ -143,5 +143,6 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
 - 2026-09-02 — **Ideas board shipped** (`/ideas`, 💡 nav link). Marketaux key set via Vercel API (Cred Manager `StockWallet_Marketaux` -> `MARKETAUX_API_KEY`). `src/lib/news.ts` (Marketaux paged aggregation -> ticker mentions + sentiment, match>=40, US tickers, top 20 candidates), `src/lib/fundamentals.ts` (Finnhub consensus + P/E + 52wk). Ideas page gates: quotable (Finnhub quote) + analyst coverage; cards show news sentiment, analyst consensus, valuation, sourced headlines, "+ Watch". Cached 6h.
   - **HONEST LIMITATION:** Marketaux free *general* feed is PR-wire heavy + cross-tags loosely (PALAF slideshow, CWK/PPIH tangential slipped through despite gates; AAPL/STM/ZEPP legit). Threshold filtering has a quality ceiling.
   - **RECOMMENDED next iteration:** pivot discovery to a **curated quality universe** (defined list of solid US large/mid-caps) -> pull news + consensus + valuation, rank by news activity + bullish consensus. Turns "whatever crossed the wire" into "notable covered companies with real news + bullish setup." Pending Jaime's ok.
+- 2026-09-02 — **Bet Journal SHIPPED → Phase 3 CLOSED.** Migration `add_journal` (JournalEntry + enums Conviction/ThesisDirection/ThesisStatus/Verdict). `src/lib/journal.ts`, `src/app/journal-actions.ts` (createThesis w/ entry-price snapshot via getQuoteData, gradeThesis, reopenThesis, deleteThesis), `/journal` page + 🎯 nav link. Features: log thesis (direction/target/timeframe/conviction/reasoning), live target-hit + expired signals, move-since-logged %, grade Right/Wrong, win-rate stats overall + by conviction. Deployed ● Ready. Build clean; `/journal` 307-guarded.
 - 2026-09-02 — **Curated-universe upgrade SHIPPED + approved.** `src/lib/news.ts` now queries Marketaux with `symbols=<UNIVERSE>` (whitelist of ~55 quality US large/mid-caps) so only real/covered/quotable names surface — OTC/PR-wire noise structurally impossible. Dry-run board: NVDA/AAPL/LLY/JNJ/NFLX/AMD/GOOGL (all legit). match>=30, 8 pages, cached 6h. Deployed ● Ready. Universe is a static list in news.ts — easy to expand/sector-tune later.
   - **Still TODO Phase 3:** the **Bet Journal** (log thesis/target/timeframe/conviction; grade outcomes; win-rate stats). Not started.
