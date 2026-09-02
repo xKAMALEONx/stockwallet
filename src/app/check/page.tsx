@@ -27,6 +27,8 @@ export default async function CheckPage({
   const amountUsd = Number(sp.amount ?? "") || 0;
 
   let result: ReturnType<typeof evaluateTrade> | null = null;
+  let peValue: number | null = null;
+  let projConcentration: number | null = null;
 
   if (symbol) {
     const account = await getOrCreateDefaultAccount(session.sub);
@@ -98,6 +100,11 @@ export default async function CheckPage({
       hasLongThesis,
     };
     result = evaluateTrade(input);
+
+    peValue = fundamentals?.peTTM ?? null;
+    const denom = portfolioValue + amountUsd;
+    projConcentration =
+      denom > 0 ? ((existingPositionValue + amountUsd) / denom) * 100 : null;
   }
 
   return (
@@ -177,6 +184,74 @@ export default async function CheckPage({
                 </div>
               ))}
             </div>
+
+            {action === "BUY" && (
+              <div className="flex flex-col gap-5 rounded-lg border border-zinc-800 bg-zinc-900/40 p-5">
+                <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">
+                  How to read the flags
+                </h2>
+
+                {/* P/E scale */}
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-medium text-zinc-200">
+                    Valuation — P/E
+                    {peValue != null ? `: ${peValue.toFixed(0)}` : ": n/a"}
+                  </p>
+                  <Meter
+                    value={peValue}
+                    max={60}
+                    boundaries={[25, 40]}
+                    zones={[
+                      { upTo: 25, cls: "bg-emerald-500/40" },
+                      { upTo: 40, cls: "bg-amber-500/40" },
+                      { upTo: 60, cls: "bg-red-500/40" },
+                    ]}
+                  />
+                  <div className="flex justify-between text-[10px] uppercase tracking-wide text-zinc-500">
+                    <span>Normal ≤25</span>
+                    <span>Pricey 25–40</span>
+                    <span>Expensive 40+</span>
+                  </div>
+                  <p className="text-xs leading-5 text-zinc-400">
+                    <strong className="text-zinc-300">P/E</strong> is the price tag on
+                    $1 of the company&apos;s yearly profit — roughly how many years of
+                    today&apos;s profit you&apos;re paying for. Higher = you&apos;re
+                    paying more and betting on bigger growth. Not bad on its own; a
+                    fast grower earns a higher P/E.
+                  </p>
+                </div>
+
+                {/* Concentration scale */}
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-medium text-zinc-200">
+                    Concentration
+                    {projConcentration != null
+                      ? `: ~${projConcentration.toFixed(0)}% of portfolio`
+                      : ""}
+                  </p>
+                  <Meter
+                    value={projConcentration}
+                    max={50}
+                    boundaries={[25]}
+                    zones={[
+                      { upTo: 25, cls: "bg-emerald-500/40" },
+                      { upTo: 50, cls: "bg-red-500/40" },
+                    ]}
+                  />
+                  <div className="flex justify-between text-[10px] uppercase tracking-wide text-zinc-500">
+                    <span>Safe ≤25%</span>
+                    <span>Too much 25%+</span>
+                  </div>
+                  <p className="text-xs leading-5 text-zinc-400">
+                    <strong className="text-zinc-300">Concentration</strong> is how much
+                    of your whole portfolio sits in this one stock. Keep any single name
+                    under <strong className="text-zinc-300">25%</strong> so one bad pick
+                    can&apos;t sink you.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <Link
                 href="/journal"
@@ -230,6 +305,45 @@ function VerdictBanner({
       <p className="mt-1 text-sm opacity-90">
         {action === "BUY" ? "Buying" : "Selling"} {symbol} — {map.sub}
       </p>
+    </div>
+  );
+}
+
+function Meter({
+  value,
+  max,
+  zones,
+  boundaries,
+}: {
+  value: number | null;
+  max: number;
+  zones: { upTo: number; cls: string }[];
+  boundaries: number[];
+}) {
+  const pct = value == null ? null : Math.max(0, Math.min(100, (value / max) * 100));
+  let prev = 0;
+  return (
+    <div className="relative h-3 w-full overflow-hidden rounded-full bg-zinc-800">
+      <div className="flex h-full w-full">
+        {zones.map((z, i) => {
+          const w = ((z.upTo - prev) / max) * 100;
+          prev = z.upTo;
+          return <div key={i} className={z.cls} style={{ width: `${w}%` }} />;
+        })}
+      </div>
+      {boundaries.map((b, i) => (
+        <div
+          key={i}
+          className="absolute top-0 h-full w-px bg-zinc-600"
+          style={{ left: `${(b / max) * 100}%` }}
+        />
+      ))}
+      {pct != null && (
+        <div
+          className="absolute -top-1 h-5 w-1 rounded-full bg-white shadow"
+          style={{ left: `calc(${pct}% - 2px)` }}
+        />
+      )}
     </div>
   );
 }
