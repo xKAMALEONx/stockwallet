@@ -35,7 +35,7 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
 - NextAuth GitHub login — only Jaime can enter
 - **Done when:** live URL loads, Jaime logs in, DB connected.
 
-## Phase 1 — Portfolio Core  *(the MVP)*  🏗️ in progress
+## Phase 1 — Portfolio Core  *(the MVP)*  ✅ done
 **Goal:** Enter real trades, see accurate holdings & P/L.
 - Data model: `Account`, `Transaction` (ticker, side, qty, price, fees, date), derived `Position`
 - Manual trade entry (buy/sell) + edit/delete
@@ -115,3 +115,10 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
 - 2026-08-30 — **Phase 0 CLOSED.** Jaime enrolled at /setup (username+password+TOTP) and logged in. Foundation complete.
 - 2026-08-30 — **Phase 1 core built + deployed.** Migration `add_portfolio` (Account, Transaction, TradeSide enum). Average-cost **engine** `src/lib/portfolio.ts` (`computePositions`/`withQuotes`/`summarize`) with **10 vitest tests passing** (`src/lib/portfolio.test.ts`, `npm test`). Trade CRUD server actions (`src/app/portfolio-actions.ts`, ownership-scoped). Dashboard `src/app/page.tsx`: summary tiles, holdings table, add-trade form, transactions ledger w/ edit (`/trades/[id]/edit`) + delete. Finnhub quote fetcher `src/lib/quotes.ts` (dormant until `FINNHUB_API_KEY` set). Build ✓, deployed ● Ready, `/login` 200, `/` 307→login.
   - **Remaining for Phase 1 done:** (1) Jaime adds a **Finnhub** key (Cred Manager `StockWallet_Finnhub`) → Po wires `FINNHUB_API_KEY` → live market value + unrealized P/L. (2) Jaime enters real Robinhood trades and confirms numbers match brokerage.
+- 2026-08-30 — Finnhub key wired (`FINNHUB_API_KEY` on Vercel + local); live prices ON. `Price / share` label clarified on trade forms.
+- 2026-09-01 — **Phase 1 ACCEPTANCE PASSED + CLOSED.** Jaime entered a full year of real trades. Reconciliation: stocks match brokerage exactly (NVDA +$5.87); realized P/L ours −$43.29 vs Robinhood −$39.54 — the entire ~$3.75 gap is **XRP crypto spread** (Robinhood bakes spread into crypto basis; avg-vs-FIFO only differs $0.04, so engine is correct). Jaime accepted (Option A). Fixed root cause: migration `widen_decimal_precision` (price/fees → Decimal(20,8), qty → Decimal(28,10)) so crypto stores exactly. Deployed ● Ready.
+  - **Known gaps → Phase 2:** (a) crypto (XRP) has no live quote — Finnhub `/quote` is stock-only, need crypto endpoint; (b) definitive brokerage match needs **Robinhood CSV import** (Phase 6). Neither blocks.
+
+## Phase 1 → 2 handoff notes
+- Finnhub `/quote` returns `c` (price), `d` (day change $), `dp` (day change %), `pc` (prev close) — day-change comes FREE, no extra call. Use for watchlist + holdings.
+- Finnhub free tier: `/quote` free; `/stock/candle` (for sparklines) is PREMIUM (403 on free) — sparklines need another source or defer.
