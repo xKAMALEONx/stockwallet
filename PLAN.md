@@ -44,7 +44,7 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
 - Dashboard: total value, total P/L (realized + unrealized), positions table
 - **Done when:** Jaime enters his real trades and the numbers match his brokerage.
 
-## Phase 2 — Watchlist & Quotes Polish
+## Phase 2 — Watchlist & Quotes Polish  ✅ done *(sparklines deferred — free candle data blocked)*
 **Goal:** Track tickers he's eyeing without owning them.
 - Watchlist CRUD, live quotes, day change %, mini sparkline
 - Quote caching layer to respect Finnhub rate limits
@@ -128,3 +128,4 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
 - 2026-09-01/02 — **Secret corruption fixed**: PS5.1 piping into `vercel env add` truncated values → `FINNHUB_API_KEY` was 11 chars (401 Invalid API key; watchlist prices blank) and `AUTH_SECRET` was 11 chars. Re-set BOTH via **Vercel REST API** (clean): Finnhub back to 40 chars, AUTH_SECRET rotated to strong 44-char (invalidated Jaime's session → one re-login, no re-enroll). Lesson saved in TOOLS.md: set Vercel env via API, never piped CLI.
 - 2026-09-02 — **Crypto quotes shipped**: `src/lib/quotes.ts` now routes crypto tickers (map of BTC/ETH/XRP/… → CoinGecko ids) to CoinGecko `simple/price` (free, no key), stocks stay on Finnhub. XRP now prices on holdings + watchlist. Deployed ● Ready.
   - **Phase 2 remaining:** market open/closed badge; sparklines (deferred — free candle data blocked). Quote caching is currently `fetch` revalidate:30s (fine for single user).
+- 2026-09-02 — **Market-hours badge shipped** (`src/lib/market.ts`, header badge). ET session Mon–Fri 9:30–16:00, DST-safe via Intl (no holiday calendar). Crypto watchlist confirmed working by Jaime. **Phase 2 CLOSED** (sparklines deferred to a later polish — Finnhub free blocks candles; revisit with an alt source or in Phase 5/6).
