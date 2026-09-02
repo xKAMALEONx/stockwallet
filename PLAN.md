@@ -51,7 +51,16 @@ he bought it, and whether his reasoning actually worked. Discipline over magic.
 - Market-hours awareness (open/closed indicator)
 - **Done when:** watchlist updates smoothly and stays within API limits.
 
-## Phase 3 — Bet Journal 🎯  *(the differentiator)*
+## Phase 3 — Bet Journal 🎯 + News-Driven Ideas  *(the differentiator)*
+**Reshaped 2026-09-02 (Jaime):** wants a **news-recommended stock ideas list** with a **long-term benefit lens** (his goal is long-term investing). Bet Journal folds in as the "log your thesis" layer.
+
+### Data sourcing spike (done 2026-09-02) — all tested live
+- **Finnhub free (have key) ✅:** `/news?category=general` (100 sourced articles w/ source+headline+url); `/company-news?symbol=&from=&to=` (per-ticker, sourced); `/stock/recommendation` (analyst consensus strongBuy/buy/hold/sell counts — long-term street view); `/stock/metric?metric=all` (P/E, 52wk hi/lo, EPS — valuation).
+- **Finnhub premium ❌:** `/stock/price-target` → 403 (analyst target/upside NOT free here).
+- **Gap for TRUE news-discovery:** need **ticker-tagged news + sentiment** (Finnhub company-news requires you to name the ticker). → **Recommend Marketaux** (free, 100/day, entity/ticker sentiment). Alt: Alpha Vantage (25/day, but NEWS_SENTIMENT + OVERVIEW's AnalystTargetPrice fills the upside gap).
+- **Long-run lens (sourceable, NOT advice):** analyst consensus trend + valuation (P/E, PEG, 52wk) + analyst target upside (needs AV or paid). Always show source links.
+- **PENDING DECISION (Jaime):** pick news source — Marketaux (rec) vs Alpha Vantage vs Finnhub-only. Then create free key → Cred Manager.
+
 **Goal:** Turn trades into a feedback loop.
 - Log a thesis per trade/idea: reasoning, target price, timeframe, conviction level
 - Link to a position or stand alone (a "watch this play out" idea)
