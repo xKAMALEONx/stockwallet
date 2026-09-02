@@ -24,6 +24,7 @@ model User {
   createdAt    DateTime  @default(now())
   accounts     Account[]
   watchlist    WatchlistItem[]
+  journal      JournalEntry[]
 }
 
 model WatchlistItem {
@@ -73,4 +74,48 @@ model Transaction {
 
   @@index([accountId, symbol])
   @@index([accountId, tradedAt])
+}
+
+// ─────────────────────────────────────────────
+// Bet Journal: log a thesis, track it, grade it.
+// ─────────────────────────────────────────────
+
+enum Conviction {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ThesisDirection {
+  BULL
+  BEAR
+}
+
+enum ThesisStatus {
+  OPEN
+  CLOSED
+}
+
+enum Verdict {
+  RIGHT
+  WRONG
+}
+
+model JournalEntry {
+  id          String          @id @default(cuid())
+  userId      String
+  symbol      String
+  thesis      String
+  direction   ThesisDirection @default(BULL)
+  entryPrice  Decimal?        @db.Decimal(20, 8) // price snapshot when logged
+  targetPrice Decimal?        @db.Decimal(20, 8)
+  timeframe   DateTime? // optional "by when"
+  conviction  Conviction      @default(MEDIUM)
+  status      ThesisStatus    @default(OPEN)
+  verdict     Verdict? // set when graded (also closes it)
+  createdAt   DateTime        @default(now())
+  resolvedAt  DateTime?
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
