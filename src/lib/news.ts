@@ -18,11 +18,23 @@ export type Idea = {
   articles: NewsArticle[];
 };
 
-const MIN_MATCH = 40; // ticker must be a real subject, not a passing mention
-const PAGES = 6; // 6 * 3 = up to 18 articles per refresh
+const MIN_MATCH = 30; // relevance floor (universe whitelist already ensures quality)
+const PAGES = 8; // 8 * 3 = up to 24 recent articles about the universe
 const REVALIDATE = 21600; // 6h
 const US_TICKER = /^[A-Z]{1,5}$/;
-const MAX_CANDIDATES = 20; // page then filters to quotable + slices
+const MAX_CANDIDATES = 20;
+
+// Curated universe of quality US large/mid-caps. Discovery is scoped to these,
+// so only real, covered, quotable companies ever surface (no OTC/PR-wire noise).
+const UNIVERSE = [
+  "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "AVGO", "AMD", "CRM",
+  "ADBE", "ORCL", "INTC", "QCOM", "CSCO", "IBM", "NFLX", "PLTR", "UBER", "SHOP",
+  "JPM", "BAC", "WFC", "GS", "MS", "V", "MA", "PYPL", "AXP",
+  "UNH", "JNJ", "LLY", "MRK", "PFE", "ABBV", "TMO",
+  "WMT", "COST", "HD", "PG", "KO", "PEP", "MCD", "NKE", "SBUX", "DIS",
+  "XOM", "CVX", "CAT", "BA", "GE", "LIN", "T", "VZ", "CMCSA",
+];
+const UNIVERSE_SET = new Set(UNIVERSE);
 
 type RawEntity = {
   type?: string;
@@ -50,7 +62,7 @@ export async function getNewsIdeas(): Promise<Idea[]> {
   for (let page = 1; page <= PAGES; page++) {
     try {
       const res = await fetch(
-        `https://api.marketaux.com/v1/news/all?filter_entities=true&language=en&countries=us&limit=3&page=${page}&api_token=${key}`,
+        `https://api.marketaux.com/v1/news/all?symbols=${UNIVERSE.join(",")}&filter_entities=true&language=en&limit=3&page=${page}&api_token=${key}`,
         { next: { revalidate: REVALIDATE } },
       );
       if (!res.ok) break;
@@ -69,7 +81,7 @@ export async function getNewsIdeas(): Promise<Idea[]> {
             continue;
           }
           const sym = String(e.symbol ?? "").toUpperCase();
-          if (!US_TICKER.test(sym)) continue;
+          if (!US_TICKER.test(sym) || !UNIVERSE_SET.has(sym)) continue;
           if (!byTicker.has(sym)) {
             byTicker.set(sym, { sentiments: [], articles: new Map() });
           }
