@@ -8,6 +8,7 @@ import { computePositions, withQuotes } from "@/lib/portfolio";
 import { getQuoteData } from "@/lib/quotes";
 import { getFundamentals } from "@/lib/fundamentals";
 import { evaluateTrade, type GuardInput, type CheckStatus } from "@/lib/guard";
+import { getSymbolNews, newsTradeSummary, type NewsArticle } from "@/lib/news";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,8 @@ export default async function CheckPage({
   let result: ReturnType<typeof evaluateTrade> | null = null;
   let peValue: number | null = null;
   let projConcentration: number | null = null;
+  let newsData: { avgSentiment: number | null; articles: NewsArticle[] } | null =
+    null;
 
   if (symbol) {
     const account = await getOrCreateDefaultAccount(session.sub);
@@ -105,7 +108,17 @@ export default async function CheckPage({
     const denom = portfolioValue + amountUsd;
     projConcentration =
       denom > 0 ? ((existingPositionValue + amountUsd) / denom) * 100 : null;
+
+    newsData = await getSymbolNews(symbol);
   }
+
+  const newsSummary = newsData
+    ? newsTradeSummary(
+        newsData.avgSentiment,
+        action,
+        newsData.articles.length > 0,
+      )
+    : null;
 
   return (
     <div className="min-h-full bg-zinc-950 font-sans text-zinc-100">
@@ -170,6 +183,48 @@ export default async function CheckPage({
         {result && (
           <section className="flex flex-col gap-4">
             <VerdictBanner verdict={result.verdict} symbol={symbol} action={action} />
+
+            {newsSummary && newsData && (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3">
+                <p className="text-sm font-medium">
+                  📰{" "}
+                  <span
+                    className={
+                      newsSummary.tone === "pos"
+                        ? "text-emerald-300"
+                        : newsSummary.tone === "neg"
+                          ? "text-red-300"
+                          : "text-zinc-300"
+                    }
+                  >
+                    {newsSummary.lean}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-zinc-400">{newsSummary.nuance}</p>
+                {newsData.articles.length > 0 && (
+                  <ul className="mt-2 flex flex-col gap-1">
+                    {newsData.articles.slice(0, 3).map((a) => (
+                      <li key={a.url} className="text-xs">
+                        <a
+                          href={a.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-zinc-300 underline decoration-zinc-700 underline-offset-2 hover:text-zinc-100"
+                        >
+                          {a.title}
+                        </a>
+                        <span className="text-zinc-600"> — {a.source}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="mt-2 text-[10px] text-zinc-600">
+                  News sentiment is a quick vibe check, not a signal — not financial
+                  advice.
+                </p>
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
               {result.checks.map((c) => (
                 <div

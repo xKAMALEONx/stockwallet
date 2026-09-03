@@ -120,6 +120,89 @@ export function newsEnabled(): boolean {
   return Boolean(process.env.MARKETAUX_API_KEY);
 }
 
+/** Recent tagged news for a single ticker (for the Trade Guard news read). */
+export async function getSymbolNews(
+  symbol: string,
+): Promise<{ avgSentiment: number | null; articles: NewsArticle[] }> {
+  const key = process.env.MARKETAUX_API_KEY;
+  const sym = symbol.toUpperCase();
+  if (!key || !sym) return { avgSentiment: null, articles: [] };
+  try {
+    const res = await fetch(
+      `https://api.marketaux.com/v1/news/all?symbols=${sym}&filter_entities=true&language=en&limit=3&api_token=${key}`,
+      { next: { revalidate: 1800 } }, // 30m cache
+    );
+    if (!res.ok) return { avgSentiment: null, articles: [] };
+    const data = (await res.json()) as { data?: RawArticle[] };
+    const articles: NewsArticle[] = [];
+    const sentiments: number[] = [];
+    for (const a of data.data ?? []) {
+      if (!a.url || !a.title) continue;
+      articles.push({
+        title: a.title,
+        source: a.source ?? "news",
+        url: a.url,
+        publishedAt: a.published_at ?? "",
+      });
+      for (const e of a.entities ?? []) {
+        if (
+          e.type === "equity" &&
+          String(e.symbol ?? "").toUpperCase() === sym &&
+          typeof e.sentiment_score === "number"
+        ) {
+          sentiments.push(e.sentiment_score);
+        }
+      }
+    }
+    const avgSentiment = sentiments.length
+      ? sentiments.reduce((s, x) => s + x, 0) / sentiments.length
+      : null;
+    return { avgSentiment, articles };
+  } catch {
+    return { avgSentiment: null, articles: [] };
+  }
+}
+
+/** Plain-English read of the news for the specific trade being considered. */
+export function newsTradeSummary(
+  avg: number | null,
+  action: "BUY" | "SELL",
+  hasArticles: boolean,
+): { tone: "pos" | "neg" | "neutral"; lean: string; nuance: string } {
+  if (!hasArticles || avg === null) {
+    return {
+      tone: "neutral",
+      lean: "No recent tagged news",
+      nuance:
+        "Nothing notable in the headlines right now — this comes down to your own thesis, valuation, and the rules above.",
+    };
+  }
+  const tone = avg > 0.15 ? "pos" : avg < -0.15 ? "neg" : "neutral";
+  const lean =
+    tone === "pos"
+      ? "Recent news leans positive"
+      : tone === "neg"
+        ? "Recent news leans negative"
+        : "Recent news is mixed";
+  let nuance: string;
+  if (action === "BUY") {
+    nuance =
+      tone === "pos"
+        ? "A tailwind — just make sure you're buying the business, not chasing the hype."
+        : tone === "neg"
+          ? "There's negative news right now — understand what's driving it before you buy the dip."
+          : "Nothing dramatic in the headlines — this rests on your thesis and valuation.";
+  } else {
+    nuance =
+      tone === "neg"
+        ? "Negative headlines — is this a real change to your thesis, or short-term noise you'd regret selling into?"
+        : tone === "pos"
+          ? "News is positive — are you selling into strength for a clear reason?"
+          : "Quiet news — make sure this sell is thesis-driven, not a mood.";
+  }
+  return { tone, lean, nuance };
+}
+
 export function sentimentLabel(v: number): {
   label: string;
   tone: "pos" | "neg" | "neutral";
