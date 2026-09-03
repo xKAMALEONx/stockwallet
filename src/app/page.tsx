@@ -104,6 +104,12 @@ export default async function Dashboard({
             >
               🛡️ Guard
             </Link>
+            <Link
+              href="/alerts"
+              className="rounded-md border border-emerald-800 bg-emerald-950/30 px-3 py-1.5 font-medium text-emerald-300 transition-colors hover:bg-emerald-900/40"
+            >
+              🔔 Alerts
+            </Link>
             <span>{session.username}</span>
             <form action={logout}>
               <button className="rounded-md border border-zinc-700 px-3 py-1.5 text-zinc-300 transition-colors hover:bg-zinc-800">

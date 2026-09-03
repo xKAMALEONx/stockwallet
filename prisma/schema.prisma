@@ -25,6 +25,26 @@ model User {
   accounts     Account[]
   watchlist    WatchlistItem[]
   journal      JournalEntry[]
+  alerts       Alert[]
+}
+
+enum AlertDirection {
+  ABOVE
+  BELOW
+}
+
+model Alert {
+  id              String         @id @default(cuid())
+  userId          String
+  symbol          String
+  direction       AlertDirection
+  targetPrice     Decimal        @db.Decimal(20, 8)
+  active          Boolean        @default(true)
+  lastTriggeredAt DateTime?
+  createdAt       DateTime       @default(now())
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model WatchlistItem {
