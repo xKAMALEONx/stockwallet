@@ -82,4 +82,10 @@ describe("evaluateTrade — long-term guard", () => {
     const r = evaluateTrade(base({ recentTradeCount6mo: 3 }));
     expect(check(r, "overtrading").status).toBe("warn");
   });
+
+  it("crypto skips P/E — valuation is ok with a crypto explanation", () => {
+    const r = evaluateTrade(base({ isCrypto: true, peTTM: 999 }));
+    expect(check(r, "valuation").status).toBe("ok");
+    expect(check(r, "valuation").message.toLowerCase()).toContain("crypto");
+  });
 });

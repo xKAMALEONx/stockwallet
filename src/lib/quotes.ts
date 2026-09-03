@@ -36,6 +36,11 @@ function isCrypto(symbol: string): boolean {
   return symbol in CRYPTO_IDS;
 }
 
+/** True if the ticker is a known cryptocurrency (no company fundamentals). */
+export function isCryptoSymbol(symbol: string): boolean {
+  return symbol.toUpperCase() in CRYPTO_IDS;
+}
+
 async function fetchStockQuote(
   symbol: string,
   key: string,

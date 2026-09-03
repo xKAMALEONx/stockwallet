@@ -16,6 +16,7 @@ export type GuardInput = {
   positionAgeDays: number | null; // days since earliest buy (null if not held)
   recentTradeCount6mo: number; // prior trades on this ticker in last 6 months
   hasLongThesis: boolean; // open journal thesis for ticker w/ >=12mo horizon
+  isCrypto?: boolean; // crypto has no earnings → P/E doesn't apply
 };
 
 export type Check = {
@@ -87,9 +88,12 @@ export function evaluateTrade(input: GuardInput): GuardResult {
       id: "valuation",
       label: "Valuation (P/E)",
       status:
-        input.peTTM != null && input.peTTM > GUARD.PE_CEILING ? "warn" : "ok",
-      message:
-        input.peTTM == null
+        !input.isCrypto && input.peTTM != null && input.peTTM > GUARD.PE_CEILING
+          ? "warn"
+          : "ok",
+      message: input.isCrypto
+        ? "P/E doesn't apply to crypto — a coin has no company earnings to price."
+        : input.peTTM == null
           ? "No P/E available (may be unprofitable or missing data)."
           : input.peTTM > GUARD.PE_CEILING
             ? `P/E is ${input.peTTM.toFixed(0)} (> ${GUARD.PE_CEILING}) — you're paying a premium for future growth.`

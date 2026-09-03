@@ -5,7 +5,7 @@ import { getSession } from "@/lib/session";
 import { getOrCreateDefaultAccount, listTransactions } from "@/lib/trades";
 import { listJournal } from "@/lib/journal";
 import { computePositions, withQuotes } from "@/lib/portfolio";
-import { getQuoteData } from "@/lib/quotes";
+import { getQuoteData, isCryptoSymbol } from "@/lib/quotes";
 import { getFundamentals } from "@/lib/fundamentals";
 import { evaluateTrade, type GuardInput, type CheckStatus } from "@/lib/guard";
 import { getSymbolNews, newsTradeSummary, type NewsArticle } from "@/lib/news";
@@ -26,6 +26,7 @@ export default async function CheckPage({
   const symbol = (sp.symbol ?? "").trim().toUpperCase();
   const action: "BUY" | "SELL" = sp.action === "SELL" ? "SELL" : "BUY";
   const amountUsd = Number(sp.amount ?? "") || 0;
+  const isCrypto = symbol ? isCryptoSymbol(symbol) : false;
 
   let result: ReturnType<typeof evaluateTrade> | null = null;
   let peValue: number | null = null;
@@ -101,6 +102,7 @@ export default async function CheckPage({
       positionAgeDays,
       recentTradeCount6mo,
       hasLongThesis,
+      isCrypto,
     };
     result = evaluateTrade(input);
 
@@ -250,18 +252,30 @@ export default async function CheckPage({
                 <div className="flex flex-col gap-2">
                   <p className="text-sm font-medium text-zinc-200">
                     Valuation — P/E
-                    {peValue != null ? `: ${peValue.toFixed(0)}` : ": n/a"}
+                    {isCrypto
+                      ? ": n/a for crypto"
+                      : peValue != null
+                        ? `: ${peValue.toFixed(0)}`
+                        : ": n/a"}
                   </p>
-                  <Meter
-                    value={peValue}
-                    max={60}
-                    boundaries={[25, 40]}
-                    zones={[
-                      { upTo: 25, cls: "bg-emerald-500/40" },
-                      { upTo: 40, cls: "bg-amber-500/40" },
-                      { upTo: 60, cls: "bg-red-500/40" },
-                    ]}
-                  />
+                  {isCrypto ? (
+                    <p className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-400">
+                      P/E doesn&apos;t apply to crypto — a coin has no company earnings
+                      to price. Judge it on your thesis, position size, and the news
+                      instead.
+                    </p>
+                  ) : (
+                    <Meter
+                      value={peValue}
+                      max={60}
+                      boundaries={[25, 40]}
+                      zones={[
+                        { upTo: 25, cls: "bg-emerald-500/40" },
+                        { upTo: 40, cls: "bg-amber-500/40" },
+                        { upTo: 60, cls: "bg-red-500/40" },
+                      ]}
+                    />
+                  )}
                   <div className="flex justify-between text-[10px] uppercase tracking-wide text-zinc-500">
                     <span>Normal ≤25</span>
                     <span>Pricey 25–40</span>
