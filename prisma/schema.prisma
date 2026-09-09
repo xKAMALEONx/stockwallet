@@ -26,6 +26,7 @@ model User {
   watchlist    WatchlistItem[]
   journal      JournalEntry[]
   alerts       Alert[]
+  dividends    Dividend[]
 }
 
 enum AlertDirection {
@@ -56,6 +57,27 @@ model WatchlistItem {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, symbol])
+}
+
+// ─────────────────────────────────────────────
+// Dividends: cash income received from a holding. Kept OUT of the transaction
+// ledger on purpose — a dividend doesn't change shares or cost basis, it's
+// realized income that feeds TOTAL RETURN (price gains + income). Storing it
+// as a fake trade would corrupt the tested cost-basis engine.
+// ─────────────────────────────────────────────
+
+model Dividend {
+  id        String   @id @default(cuid())
+  userId    String
+  symbol    String // uppercase ticker
+  amount    Decimal  @db.Decimal(20, 8) // total cash received (not per-share)
+  paidAt    DateTime
+  note      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, symbol])
+  @@index([userId, paidAt])
 }
 
 // ─────────────────────────────────────────────

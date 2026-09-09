@@ -11,6 +11,12 @@ import { getMarketStatus } from "@/lib/market";
 import { createTrade, deleteTrade } from "@/app/portfolio-actions";
 import { addWatch, removeWatch } from "@/app/watchlist-actions";
 import {
+  listDividends,
+  createDividend,
+  deleteDividend,
+} from "@/app/dividend-actions";
+import { incomeBySymbol, totalIncome, totalReturn } from "@/lib/dividends";
+import {
   money,
   signedMoney,
   percent,
@@ -23,16 +29,17 @@ export const dynamic = "force-dynamic";
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; werror?: string }>;
+  searchParams: Promise<{ error?: string; werror?: string; derror?: string }>;
 }) {
-  const { error, werror } = await searchParams;
+  const { error, werror, derror } = await searchParams;
   const session = await getSession();
   if (!session) redirect("/login");
 
   const account = await getOrCreateDefaultAccount(session.sub);
-  const [txns, watchlist] = await Promise.all([
+  const [txns, watchlist, dividends] = await Promise.all([
     listTransactions(account.id),
     listWatchlist(session.sub),
+    listDividends(session.sub),
   ]);
 
   const positions = computePositions(
@@ -59,6 +66,16 @@ export default async function Dashboard({
   const withMarket = withQuotes(positions, priceMap);
   const heldWithMarket = withMarket.filter((p) => p.shares.gt(0));
   const summary = summarize(withMarket);
+
+  // Dividend income → total return (price P/L + income).
+  const incomeMap = incomeBySymbol(dividends);
+  const totalDividends = totalIncome(dividends);
+  const totalRet = totalReturn(
+    summary.totalRealizedPnL,
+    summary.totalUnrealizedPnL,
+    totalDividends,
+  );
+
   const market = getMarketStatus();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -122,7 +139,7 @@ export default async function Dashboard({
         {error && <ErrorNote>{error}</ErrorNote>}
 
         {/* Summary tiles */}
-        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <section className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <Tile label="Market Value" value={money(summary.totalMarketValue)} />
           <Tile
             label="Unrealized P/L"
@@ -134,6 +151,17 @@ export default async function Dashboard({
             label="Realized P/L"
             value={signedMoney(summary.totalRealizedPnL)}
             color={pnlColor(summary.totalRealizedPnL)}
+          />
+          <Tile
+            label="Dividend Income"
+            value={money(totalDividends)}
+            color={totalDividends.gt(0) ? "text-emerald-400" : "text-zinc-100"}
+          />
+          <Tile
+            label="Total Return"
+            value={signedMoney(totalRet)}
+            color={pnlColor(totalRet)}
+            hint="Price P/L + dividends"
           />
         </section>
 
@@ -161,12 +189,14 @@ export default async function Dashboard({
                     <Th right>Price</Th>
                     <Th right>Day</Th>
                     <Th right>Mkt Value</Th>
+                    <Th right>Income</Th>
                     <Th right>Unrealized</Th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
                   {heldWithMarket.map((p) => {
                     const dp = quoteData[p.symbol]?.changePct ?? null;
+                    const income = incomeMap[p.symbol] ?? null;
                     return (
                       <tr key={p.symbol} className="hover:bg-zinc-900/40">
                         <Td className="font-semibold text-emerald-400">{p.symbol}</Td>
@@ -176,6 +206,12 @@ export default async function Dashboard({
                         <Td right>{money(p.price)}</Td>
                         <Td right className={pnlColor(dp)}>{percent(dp)}</Td>
                         <Td right>{money(p.marketValue)}</Td>
+                        <Td
+                          right
+                          className={income ? "text-emerald-400" : "text-zinc-600"}
+                        >
+                          {income ? money(income) : "—"}
+                        </Td>
                         <Td right className={pnlColor(p.unrealizedPnL)}>
                           {signedMoney(p.unrealizedPnL)}
                         </Td>
@@ -238,6 +274,64 @@ export default async function Dashboard({
             <Input name="note" label="Note (optional)" placeholder="earnings 5/1" />
             <button className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
               Watch
+            </button>
+          </form>
+        </section>
+
+        {/* Dividends */}
+        <section className="flex flex-col gap-3">
+          <SectionTitle>Dividends</SectionTitle>
+          {derror && <ErrorNote>{derror}</ErrorNote>}
+          {dividends.length > 0 && (
+            <TableWrap>
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-900/60 text-left text-xs uppercase tracking-wide text-zinc-500">
+                  <tr>
+                    <Th>Date</Th>
+                    <Th>Symbol</Th>
+                    <Th right>Amount</Th>
+                    <Th>Note</Th>
+                    <Th right>Actions</Th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800">
+                  {dividends.map((d) => (
+                    <tr key={d.id} className="hover:bg-zinc-900/40">
+                      <Td>{d.paidAt.toISOString().slice(0, 10)}</Td>
+                      <Td className="font-medium">{d.symbol}</Td>
+                      <Td right className="text-emerald-400">{money(d.amount)}</Td>
+                      <Td className="text-zinc-400">{d.note ?? ""}</Td>
+                      <Td right>
+                        <form action={deleteDividend}>
+                          <input type="hidden" name="id" value={d.id} />
+                          <button className="text-red-400 underline hover:text-red-300">
+                            Delete
+                          </button>
+                        </form>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableWrap>
+          )}
+          <form
+            action={createDividend}
+            className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4"
+          >
+            <Input name="symbol" label="Ticker" placeholder="AAPL" required />
+            <Input
+              name="amount"
+              label="Amount received ($)"
+              type="number"
+              step="any"
+              placeholder="12.50"
+              required
+            />
+            <Input name="paidAt" label="Date paid" type="date" defaultValue={today} />
+            <Input name="note" label="Note (optional)" placeholder="Q3 dividend" />
+            <button className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
+              Log dividend
             </button>
           </form>
         </section>
@@ -344,15 +438,18 @@ function Tile({
   label,
   value,
   color = "text-zinc-100",
+  hint,
 }: {
   label: string;
   value: string;
   color?: string;
+  hint?: string;
 }) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3">
       <p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p>
       <p className={`mt-1 text-lg font-semibold ${color}`}>{value}</p>
+      {hint && <p className="mt-0.5 text-[10px] text-zinc-600">{hint}</p>}
     </div>
   );
 }
