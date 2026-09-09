@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { verifySession } from "@/lib/jwt";
 
 // Public routes that don't require a session.
-const PUBLIC = ["/login", "/setup", "/api/alerts"];
+const PUBLIC = ["/login", "/setup", "/api/alerts", "/api/snapshot"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

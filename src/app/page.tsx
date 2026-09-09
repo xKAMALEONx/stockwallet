@@ -104,6 +104,12 @@ export default async function Dashboard({
           </div>
           <div className="flex items-center gap-4 text-sm text-zinc-400">
             <Link
+              href="/performance"
+              className="rounded-md border border-emerald-800 bg-emerald-950/30 px-3 py-1.5 font-medium text-emerald-300 transition-colors hover:bg-emerald-900/40"
+            >
+              📈 Performance
+            </Link>
+            <Link
               href="/ideas"
               className="rounded-md border border-emerald-800 bg-emerald-950/30 px-3 py-1.5 font-medium text-emerald-300 transition-colors hover:bg-emerald-900/40"
             >

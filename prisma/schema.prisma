@@ -27,6 +27,29 @@ model User {
   journal      JournalEntry[]
   alerts       Alert[]
   dividends    Dividend[]
+  snapshots    PortfolioSnapshot[]
+}
+
+// ─────────────────────────────────────────────
+// Daily equity-curve snapshot. One row per user per calendar day (UTC date key).
+// Captures portfolio market value + cost basis + cumulative dividends, plus the
+// S&P 500 (SPY) price that day so the chart can benchmark "you vs just buying
+// the index" by normalizing both series to a common start.
+// ─────────────────────────────────────────────
+
+model PortfolioSnapshot {
+  id             String   @id @default(cuid())
+  userId         String
+  date           DateTime @db.Date // calendar day (UTC), unique per user
+  marketValue    Decimal  @db.Decimal(20, 8)
+  costBasis      Decimal  @db.Decimal(20, 8)
+  dividendsTotal Decimal  @default(0) @db.Decimal(20, 8) // cumulative income to date
+  spyPrice       Decimal? @db.Decimal(20, 8) // SPY close that day (benchmark)
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
 }
 
 enum AlertDirection {
