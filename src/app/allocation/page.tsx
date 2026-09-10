@@ -10,6 +10,12 @@ import {
   UNKNOWN_SECTOR,
   type SectorHolding,
 } from "@/lib/sectors";
+import {
+  getDiversificationIdeas,
+  historyEnabled,
+} from "@/lib/ideas-source";
+import type { Idea } from "@/lib/ideas";
+import { addWatch } from "@/app/watchlist-actions";
 import { money } from "@/lib/format";
 
 // Weights are positive magnitudes (a 60% sector weight isn't a "+60%" gain),
@@ -77,6 +83,20 @@ export default async function Allocation() {
 
   const breakdown = buildSectorBreakdown(priced);
   const colorFor = (i: number) => COLORS[Math.min(i, COLORS.length - 1)];
+
+  // Diversification ideas: what fills this portfolio's sector gaps. Only when
+  // there's an actual portfolio to reason about.
+  const heldSectors = new Set(
+    breakdown.slices.map((s) => s.sector).filter((s) => s !== UNKNOWN_SECTOR),
+  );
+  const heldPct: Record<string, number> = {};
+  for (const s of breakdown.slices) heldPct[s.sector] = s.pct;
+  const heldSymbols = new Set(priced.map((p) => p.symbol.toUpperCase()));
+
+  const ideas: Idea[] =
+    breakdown.slices.length > 0
+      ? await getDiversificationIdeas({ heldSectors, heldPct, heldSymbols })
+      : [];
 
   return (
     <div className="min-h-full bg-zinc-950 font-sans text-zinc-100">
@@ -193,14 +213,123 @@ export default async function Allocation() {
               </p>
             )}
 
+            {/* Diversification ideas — evidence-backed gap-fillers */}
+            {ideas.length > 0 && (
+              <section className="flex flex-col gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    Ideas to round it out
+                  </h2>
+                  <p className="text-xs text-zinc-500">
+                    Sectors you&apos;re light on, and evidence-backed ways to
+                    fill the gap. Ranked by long-term fit — steady compounding
+                    over flashy movers. ETFs first (broad, cheap, diversified);
+                    a few stocks shown as examples.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {ideas.map((idea) => (
+                    <IdeaCard key={idea.symbol} idea={idea} />
+                  ))}
+                </div>
+                {!historyEnabled() && (
+                  <p className="text-xs text-zinc-600">
+                    Historical fit scores are off (no market-history source
+                    configured) — ideas are shown by type only.
+                  </p>
+                )}
+              </section>
+            )}
+
             <p className="text-xs text-zinc-600">
               Diversification is the one free lunch in investing. A heavy tilt
               into one sector means one bad year there hits your whole
-              portfolio. Sectors from Finnhub. Not financial advice.
+              portfolio. Sectors from Finnhub; history from Alpaca. Past
+              performance doesn&apos;t predict future returns. Not financial
+              advice.
             </p>
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function IdeaCard({ idea }: { idea: Idea }) {
+  const s = idea.stats;
+  const fit = s?.fitScore ?? null;
+
+  // Fit-score tint: green = strong long-term profile, amber = middling.
+  const fitTone =
+    fit == null
+      ? "border-zinc-700 text-zinc-400"
+      : fit >= 65
+        ? "border-emerald-800 bg-emerald-950/40 text-emerald-300"
+        : fit >= 45
+          ? "border-sky-800 bg-sky-950/30 text-sky-300"
+          : "border-amber-800 bg-amber-950/30 text-amber-300";
+
+  const stat = (v: number | null, suffix = "%", digits = 1) =>
+    v == null ? "—" : `${v.toFixed(digits)}${suffix}`;
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <span className="text-base font-bold text-emerald-400">
+            {idea.symbol}
+          </span>
+          <span
+            className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+              idea.kind === "etf"
+                ? "border-emerald-800 bg-emerald-950/40 text-emerald-300"
+                : "border-zinc-700 bg-zinc-900 text-zinc-400"
+            }`}
+          >
+            {idea.kind === "etf" ? "ETF" : "Stock · example"}
+          </span>
+          <p className="mt-0.5 text-xs text-zinc-400">{idea.name}</p>
+        </div>
+        {fit != null && (
+          <span
+            className={`shrink-0 rounded-md border px-2 py-1 text-center text-xs ${fitTone}`}
+            title="Long-term fit: risk-adjusted return, penalized for deep drawdowns. Not a prediction."
+          >
+            <span className="block text-sm font-bold">{fit.toFixed(0)}</span>
+            <span className="block text-[9px] uppercase tracking-wide opacity-80">
+              fit
+            </span>
+          </span>
+        )}
+      </div>
+
+      <p className="text-xs leading-5 text-zinc-300">
+        <span className="text-zinc-500">Fills:</span> {idea.sector}. {idea.why}
+      </p>
+
+      {s && s.annualizedPct != null && (
+        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-zinc-500">
+          <span title="Compound annual growth rate over the lookback window">
+            CAGR{" "}
+            <span className="text-zinc-300">{stat(s.annualizedPct)}</span>
+          </span>
+          <span title="Annualized volatility — how bumpy the ride was">
+            Vol <span className="text-zinc-300">{stat(s.volatilityPct)}</span>
+          </span>
+          <span title="Worst peak-to-trough decline in the window">
+            Max DD{" "}
+            <span className="text-zinc-300">{stat(s.maxDrawdownPct)}</span>
+          </span>
+          <span className="text-zinc-600">{s.years.toFixed(1)}yr history</span>
+        </div>
+      )}
+
+      <form action={addWatch} className="mt-1">
+        <input type="hidden" name="symbol" value={idea.symbol} />
+        <button className="rounded-md border border-emerald-800 bg-emerald-950/40 px-3 py-1.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-900/40">
+          + Watch
+        </button>
+      </form>
     </div>
   );
 }
