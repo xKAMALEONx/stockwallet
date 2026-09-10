@@ -5,7 +5,6 @@ import { getDailyBars, historyEnabled } from "@/lib/history";
 import { getCryptoDailyCloses, isCryptoSymbol } from "@/lib/crypto-history";
 import {
   reconstructCurveDetailed,
-  positionsAsOf,
   fillForward,
   ymd,
   type CloseTable,
@@ -24,7 +23,6 @@ export type BackfillResult = {
   cryptoSymbols: string[];
   droppedForMissing: number; // calendar days skipped for lacking a close
   partialCryptoRange: boolean; // true if crypto history couldn't reach `from`
-  debug?: Record<string, unknown>;
 };
 
 /**
@@ -124,26 +122,6 @@ export async function backfillUser(userId: string): Promise<BackfillResult> {
     filled,
   );
 
-  // Diagnostic: what does the close table actually contain, and why is a
-  // sample recent day dropping? (Surfaced in the route response.)
-  const debug: Record<string, unknown> = {};
-  for (const [sym, series] of Object.entries(filled)) {
-    const keys = Object.keys(series).sort();
-    debug[sym] = {
-      count: keys.length,
-      first: keys[0] ?? null,
-      last: keys[keys.length - 1] ?? null,
-    };
-  }
-  const sampleDay = ymd(new Date());
-  const sampleRow = (function () {
-    const { shares } = positionsAsOf(txns, sampleDay);
-    const held = Array.from(shares.keys());
-    const missing = held.filter((s) => filled[s]?.[sampleDay] == null);
-    return { day: sampleDay, held, missing };
-  })();
-  debug["_sample"] = sampleRow;
-
   // Upsert each reconstructable row.
   let written = 0;
   for (const r of rows) {
@@ -177,6 +155,5 @@ export async function backfillUser(userId: string): Promise<BackfillResult> {
     cryptoSymbols,
     droppedForMissing: dropped,
     partialCryptoRange,
-    debug,
   };
 }
