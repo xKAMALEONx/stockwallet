@@ -110,6 +110,12 @@ export default async function Dashboard({
               📈 Performance
             </Link>
             <Link
+              href="/allocation"
+              className="rounded-md border border-emerald-800 bg-emerald-950/30 px-3 py-1.5 font-medium text-emerald-300 transition-colors hover:bg-emerald-900/40"
+            >
+              🧩 Allocation
+            </Link>
+            <Link
               href="/ideas"
               className="rounded-md border border-emerald-800 bg-emerald-950/30 px-3 py-1.5 font-medium text-emerald-300 transition-colors hover:bg-emerald-900/40"
             >
