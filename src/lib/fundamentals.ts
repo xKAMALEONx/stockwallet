@@ -16,6 +16,12 @@ export type Fundamentals = {
   peTTM: number | null;
   week52High: number | null;
   week52Low: number | null;
+  // Extra inputs for earnings-based fair value (all Finnhub free tier).
+  forwardPE: number | null;
+  epsTTM: number | null;
+  epsGrowth5Y: number | null; // percent, may be negative
+  epsGrowth3Y: number | null; // percent
+  beta: number | null;
 } | null;
 
 const REVALIDATE = 21600; // 6h
@@ -69,6 +75,11 @@ export async function getFundamentals(symbol: string): Promise<Fundamentals> {
       peTTM: m.peTTM ?? null,
       week52High: m["52WeekHigh"] ?? null,
       week52Low: m["52WeekLow"] ?? null,
+      forwardPE: m.forwardPE ?? null,
+      epsTTM: m.epsTTM ?? null,
+      epsGrowth5Y: m.epsGrowth5Y ?? null,
+      epsGrowth3Y: m.epsGrowth3Y ?? null,
+      beta: m.beta ?? null,
     };
   } catch {
     return null;

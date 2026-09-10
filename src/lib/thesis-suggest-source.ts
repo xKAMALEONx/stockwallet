@@ -8,9 +8,15 @@ import "server-only";
 import { getDailyBars, historyEnabled } from "@/lib/history";
 import { getCryptoDailyCloses, isCryptoSymbol } from "@/lib/crypto-history";
 import { computeStats, type BarClose } from "@/lib/backtest";
-import { getConsensus } from "@/lib/fundamentals";
+import { getConsensus, getFundamentals } from "@/lib/fundamentals";
 import { getQuoteData } from "@/lib/quotes";
 import { suggestThesis, type ThesisSuggestion } from "@/lib/thesis-suggest";
+import { fairValue, type FairValueResult } from "@/lib/fair-value";
+
+export type FullSuggestion = ThesisSuggestion & {
+  /** Earnings-based "is it cheap/expensive now" read. Null for crypto. */
+  fair: FairValueResult | null;
+};
 
 const YMD = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -36,17 +42,36 @@ async function loadHistory(symbol: string): Promise<BarClose[]> {
  * piece it returns a sane neutral suggestion (MEDIUM, no target) so the form
  * still fills something the user can edit.
  */
-export async function suggestForSymbol(symbol: string): Promise<ThesisSuggestion> {
+export async function suggestForSymbol(symbol: string): Promise<FullSuggestion> {
   const sym = symbol.trim().toUpperCase();
+  const isCrypto = isCryptoSymbol(sym);
 
-  const [bars, quote, consensus] = await Promise.all([
+  const [bars, quote, consensus, fundamentals] = await Promise.all([
     loadHistory(sym),
     getQuoteData([sym]).catch(() => ({}) as Record<string, { price: number }>),
-    isCryptoSymbol(sym) ? Promise.resolve(null) : getConsensus(sym).catch(() => null),
+    isCrypto ? Promise.resolve(null) : getConsensus(sym).catch(() => null),
+    isCrypto ? Promise.resolve(null) : getFundamentals(sym).catch(() => null),
   ]);
 
   const stats = computeStats(bars);
   const price = quote[sym]?.price ?? null;
 
-  return suggestThesis(price, stats, consensus);
+  const base = suggestThesis(price, stats, consensus);
+
+  // Earnings-based fair value only makes sense for stocks with fundamentals.
+  const fair =
+    !isCrypto && fundamentals
+      ? fairValue({
+          price,
+          epsTTM: fundamentals.epsTTM,
+          forwardPE: fundamentals.forwardPE,
+          peTTM: fundamentals.peTTM,
+          epsGrowth5Y: fundamentals.epsGrowth5Y,
+          epsGrowth3Y: fundamentals.epsGrowth3Y,
+          week52High: fundamentals.week52High,
+          week52Low: fundamentals.week52Low,
+        })
+      : null;
+
+  return { ...base, fair };
 }
