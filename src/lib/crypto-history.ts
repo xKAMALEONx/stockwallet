@@ -32,6 +32,10 @@ export function isCryptoSymbol(symbol: string): boolean {
   return symbol.toUpperCase() in CRYPTO_IDS;
 }
 
+// The keyless free tier accepts at most 365 days of daily history; 366+ → 401.
+// A Demo key lifts that, so we can ask for the full range we actually need.
+const KEYLESS_MAX_DAYS = 365;
+
 /** Daily close price keyed by YYYY-MM-DD (UTC). Empty on failure. */
 export async function getCryptoDailyCloses(
   symbol: string,
@@ -40,15 +44,17 @@ export async function getCryptoDailyCloses(
   const id = CRYPTO_IDS[symbol.toUpperCase()];
   if (!id) return {};
 
-  // How many days back do we need? CoinGecko takes a day count, not a range,
-  // on the keyless endpoint.
-  const fromMs = new Date(fromDate).getTime();
-  const days = Math.ceil((Date.now() - fromMs) / 86400000) + 1;
-
   const key = process.env.COINGECKO_API_KEY;
   const headers: Record<string, string> = {};
-  // Demo keys unlock the full range; without one, CoinGecko clamps to ~365d.
   if (key) headers["x-cg-demo-api-key"] = key;
+
+  // Days back we'd like. CoinGecko takes a day count, not a range.
+  const fromMs = new Date(fromDate).getTime();
+  const wanted = Math.max(1, Math.ceil((Date.now() - fromMs) / 86400000));
+
+  // Without a key we MUST clamp to the keyless cap — asking for even one day
+  // more returns 401 and no data (which previously wiped the whole series).
+  const days = key ? wanted : Math.min(wanted, KEYLESS_MAX_DAYS);
 
   const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
 
@@ -57,13 +63,7 @@ export async function getCryptoDailyCloses(
       headers,
       next: { revalidate: 21600 }, // 6h — historical crypto closes barely move
     });
-    if (!res.ok) {
-      // Deep range rejected (no key) → retry clamped to the keyless max.
-      if ((res.status === 401 || res.status === 400) && days > 365) {
-        return getCryptoDailyCloses(symbol, isoDaysAgo(365));
-      }
-      return {};
-    }
+    if (!res.ok) return {};
     const data = (await res.json()) as { prices?: [number, number][] };
     const out: Record<string, number> = {};
     for (const [ts, price] of data.prices ?? []) {
@@ -73,10 +73,6 @@ export async function getCryptoDailyCloses(
   } catch {
     return {};
   }
-}
-
-function isoDaysAgo(n: number): string {
-  return new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 }
 
 /** True when a Demo key is present (unlocks >365-day crypto history). */
