@@ -1,8 +1,4 @@
-import type {
-  ReactNode,
-  InputHTMLAttributes,
-  SelectHTMLAttributes,
-} from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
@@ -15,6 +11,7 @@ import {
   deleteThesis,
 } from "@/app/journal-actions";
 import { money, percent, pnlColor } from "@/lib/format";
+import ThesisForm from "./thesis-form";
 
 export const dynamic = "force-dynamic";
 
@@ -99,40 +96,7 @@ export default async function JournalPage({
         <section className="flex flex-col gap-3">
           <SectionTitle>Log a thesis</SectionTitle>
           {error && <ErrorNote>{error}</ErrorNote>}
-          <form
-            action={createThesis}
-            className="grid grid-cols-2 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 sm:grid-cols-6"
-          >
-            <Input name="symbol" label="Ticker" placeholder="NVDA" required />
-            <Select name="direction" label="Direction">
-              <option value="BULL">Bullish</option>
-              <option value="BEAR">Bearish</option>
-            </Select>
-            <Select name="conviction" label="Conviction" defaultValue="MEDIUM">
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-            </Select>
-            <Input name="targetPrice" label="Target $" type="number" step="any" placeholder="200" />
-            <Input name="timeframe" label="By (date)" type="date" defaultValue={today} />
-            <div className="col-span-2 flex items-end sm:col-span-1">
-              <button className="w-full rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
-                Log
-              </button>
-            </div>
-            <div className="col-span-2 sm:col-span-6">
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-zinc-400">Thesis / reasoning</span>
-                <textarea
-                  name="thesis"
-                  required
-                  rows={2}
-                  placeholder="Why does this play out? What's the catalyst?"
-                  className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none focus:border-emerald-500"
-                />
-              </label>
-            </div>
-          </form>
+          <ThesisForm action={createThesis} today={today} />
         </section>
 
         {/* Entries */}
@@ -347,38 +311,3 @@ function Chip({
   );
 }
 
-function Input({
-  label,
-  ...props
-}: { label: string } & InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-zinc-400">{label}</span>
-      <input
-        {...props}
-        className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-zinc-100 outline-none focus:border-emerald-500"
-      />
-    </label>
-  );
-}
-
-function Select({
-  label,
-  children,
-  ...props
-}: {
-  label: string;
-  children: ReactNode;
-} & SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-zinc-400">{label}</span>
-      <select
-        {...props}
-        className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-zinc-100 outline-none focus:border-emerald-500"
-      >
-        {children}
-      </select>
-    </label>
-  );
-}
