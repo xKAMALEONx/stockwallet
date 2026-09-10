@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { targetImplications } from "@/lib/target-math";
+import { sizePosition, type SizingTarget } from "@/lib/position-sizing";
 
 // The auto-fill Bet Journal form. When you type a ticker and leave the field,
 // it asks /api/suggest for a backtested conviction + long-term compounding
@@ -43,6 +44,7 @@ export default function ThesisForm({
   const [symbol, setSymbol] = useState("");
   const [conviction, setConviction] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
   const [target, setTarget] = useState("");
+  const [amount, setAmount] = useState(""); // live planning aid, not saved
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState(false); // user hand-edited → don't stomp
@@ -93,6 +95,28 @@ export default function ThesisForm({
     targetNum != null &&
     targetNum !== suggestion.targetPrice &&
     targetNum !== (suggestion.fair?.fairValue ?? null);
+
+  // Position sizing: if you enter an amount, project the stake to each target
+  // we have (your target, fair value, 5yr growth). Live, off the same price.
+  const amountNum = amount.trim() ? Number(amount) : null;
+  const sizingTargets: SizingTarget[] = suggestion
+    ? [
+        { label: isCustomTarget ? "Your target" : "Target", price: targetNum },
+        { label: "Fair value", price: suggestion.fair?.fairValue ?? null },
+        { label: `${suggestion.horizonYears}yr growth`, price: suggestion.targetPrice },
+      ]
+    : [];
+  // De-dupe targets that share the same price so we don't show a row twice.
+  const seenPrices = new Set<number>();
+  const dedupedTargets = sizingTargets.filter((t) => {
+    if (t.price == null || seenPrices.has(t.price)) return false;
+    seenPrices.add(t.price);
+    return true;
+  });
+  const sizing =
+    suggestion && amountNum != null && Number.isFinite(amountNum)
+      ? sizePosition(amountNum, suggestion.price, dedupedTargets)
+      : null;
 
   return (
     <form
@@ -174,6 +198,22 @@ export default function ThesisForm({
         </button>
       </div>
 
+      {/* Optional planning aid: how much you'd put in. Not saved — just projects
+          the stake to the targets so you can size it before you commit. */}
+      <label className="col-span-2 flex flex-col gap-1 text-sm sm:col-span-2">
+        <span className="text-zinc-400">
+          Amount to invest $ <span className="text-zinc-600">(optional)</span>
+        </span>
+        <input
+          type="number"
+          step="any"
+          placeholder="1000"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-zinc-100 outline-none focus:border-emerald-500"
+        />
+      </label>
+
       {/* The system's read — two lenses on a "good target", each with the math.
           Pick whichever fits your thesis; the field above stays editable. */}
       {suggestion && (
@@ -250,6 +290,31 @@ export default function ThesisForm({
                 {isCustomTarget ? "Your target" : "This target"} ${targetNum}:
               </span>{" "}
               {impl.note}
+            </div>
+          )}
+
+          {/* Position sizing: what your amount becomes at each target. Live. */}
+          {sizing && sizing.shares != null && (
+            <div className="rounded-md border border-indigo-900/40 bg-indigo-950/20 px-3 py-2 text-xs leading-5 text-indigo-200/80">
+              <p className="mb-1">
+                💵{" "}
+                <span className="font-semibold text-indigo-300">If you invest ${amountNum}:</span>{" "}
+                {sizing.note}
+              </p>
+              {sizing.outcomes.length > 0 && (
+                <ul className="flex flex-col gap-0.5">
+                  {sizing.outcomes.map((o) => (
+                    <li key={o.label} className="flex flex-wrap gap-x-2">
+                      <span className="text-indigo-300/90">{o.label} @ ${o.targetPrice}</span>
+                      <span>→ ${o.projectedValue.toLocaleString()}</span>
+                      <span className={o.profit >= 0 ? "text-emerald-400" : "text-red-400"}>
+                        ({o.profit >= 0 ? "+" : ""}${o.profit.toLocaleString()}, {o.returnPct >= 0 ? "+" : ""}
+                        {o.returnPct}%)
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>
