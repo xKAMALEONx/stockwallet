@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { targetImplications } from "@/lib/target-math";
 
 // The auto-fill Bet Journal form. When you type a ticker and leave the field,
 // it asks /api/suggest for a backtested conviction + long-term compounding
@@ -27,6 +28,7 @@ type Suggestion = {
   rationale: string;
   confident: boolean;
   fair: FairValue | null;
+  price: number | null;
 };
 
 const SYMBOL_RE = /^[A-Z][A-Z.\-]{0,9}$/;
@@ -72,6 +74,25 @@ export default function ThesisForm({
       setLoading(false);
     }
   }
+
+  // Live implications of whatever target is currently in the box — recomputes
+  // as you type, so overriding the suggestion never leaves stale numbers.
+  const targetNum = target.trim() ? Number(target) : null;
+  const impl =
+    suggestion && targetNum != null && Number.isFinite(targetNum)
+      ? targetImplications(
+          targetNum,
+          suggestion.price,
+          suggestion.horizonYears,
+          suggestion.fair?.fairValue ?? null,
+        )
+      : null;
+  // Does the typed target differ from what we auto-suggested? (then it's "yours")
+  const isCustomTarget =
+    suggestion != null &&
+    targetNum != null &&
+    targetNum !== suggestion.targetPrice &&
+    targetNum !== (suggestion.fair?.fairValue ?? null);
 
   return (
     <form
@@ -217,6 +238,18 @@ export default function ThesisForm({
                   </button>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Live read of the target currently in the box — updates as you type
+              so your own number is never left unexplained. */}
+          {impl && impl.multiple != null && (
+            <div className="rounded-md border border-sky-900/40 bg-sky-950/20 px-3 py-2 text-xs leading-5 text-sky-200/80">
+              🎯{" "}
+              <span className="font-semibold text-sky-300">
+                {isCustomTarget ? "Your target" : "This target"} ${targetNum}:
+              </span>{" "}
+              {impl.note}
             </div>
           )}
         </div>

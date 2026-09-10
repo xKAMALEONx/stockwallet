@@ -34,6 +34,8 @@ export async function GET(req: Request) {
       projectedCagrPct: null,
       rationale: "Couldn't fetch data right now — starting at Medium. Add your own read.",
       confident: false,
+      fair: null,
+      price: null,
     });
   }
 }

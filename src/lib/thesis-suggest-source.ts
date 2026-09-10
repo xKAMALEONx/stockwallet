@@ -16,6 +16,9 @@ import { fairValue, type FairValueResult } from "@/lib/fair-value";
 export type FullSuggestion = ThesisSuggestion & {
   /** Earnings-based "is it cheap/expensive now" read. Null for crypto. */
   fair: FairValueResult | null;
+  /** Live price the suggestion was based on — lets the client recompute a
+      user-edited target's implications without another round trip. */
+  price: number | null;
 };
 
 const YMD = (d: Date) => d.toISOString().slice(0, 10);
@@ -73,5 +76,5 @@ export async function suggestForSymbol(symbol: string): Promise<FullSuggestion> 
         })
       : null;
 
-  return { ...base, fair };
+  return { ...base, fair, price };
 }
