@@ -3,7 +3,15 @@ import type { NextRequest } from "next/server";
 import { verifySession } from "@/lib/jwt";
 
 // Public routes that don't require a session.
-const PUBLIC = ["/login", "/setup", "/api/alerts", "/api/snapshot"];
+// These API routes guard themselves with ?token=CRON_SECRET, so they bypass
+// the session gate (they're called by schedulers/one-shots, not browsers).
+const PUBLIC = [
+  "/login",
+  "/setup",
+  "/api/alerts",
+  "/api/snapshot",
+  "/api/backfill",
+];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
