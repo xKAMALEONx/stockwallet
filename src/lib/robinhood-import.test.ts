@@ -195,4 +195,20 @@ describe("tradeKey — idempotency", () => {
     const base = { symbol: "AAPL", side: "BUY", quantity: "10", price: "150", tradedAt: new Date("2026-01-02") };
     expect(tradeKey(base)).not.toBe(tradeKey({ ...base, price: "151" }));
   });
+
+  it("collapses sub-cent price noise for the same fill (the NVDA dup bug)", () => {
+    const base = { symbol: "NVDA", side: "BUY", quantity: "1.11685", tradedAt: new Date("2025-08-04") };
+    // 179.075 (manual) and 179.08 (RH import) round to the same cent.
+    expect(tradeKey({ ...base, price: "179.075" })).toBe(tradeKey({ ...base, price: "179.08" }));
+  });
+
+  it("collapses trailing-zero quantity differences", () => {
+    const base = { symbol: "NVDA", side: "BUY", price: "179.08", tradedAt: new Date("2025-08-04") };
+    expect(tradeKey({ ...base, quantity: "1.116850" })).toBe(tradeKey({ ...base, quantity: "1.11685" }));
+  });
+
+  it("still distinguishes genuinely different prices (≥1 cent)", () => {
+    const base = { symbol: "AAPL", side: "BUY", quantity: "10", tradedAt: new Date("2026-01-02") };
+    expect(tradeKey({ ...base, price: "150.00" })).not.toBe(tradeKey({ ...base, price: "150.02" }));
+  });
 });

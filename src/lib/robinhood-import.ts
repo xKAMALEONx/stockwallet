@@ -258,8 +258,32 @@ export function summarizeSkips(skipped: SkippedRow[]): string {
 }
 
 /**
+ * Canonicalize a decimal string/number so cosmetically-different-but-equal
+ * values collapse together: trims trailing zeros and a trailing dot, drops a
+ * leading "+", and normalizes "-0" → "0". "1.116850" and "1.11685" both become
+ * "1.11685"; "150.00" becomes "150".
+ */
+function canonNum(v: string | number, decimals?: number): string {
+  const n = typeof v === "number" ? v : Number(String(v).trim());
+  if (!Number.isFinite(n)) return String(v).trim();
+  // Round half-up on a scaled integer (toFixed misbehaves at the .xx5 boundary,
+  // e.g. (179.075).toFixed(2) === "179.07"), then strip trailing zeros.
+  const rounded =
+    decimals === undefined ? n : Math.round(n * 10 ** decimals) / 10 ** decimals;
+  let s = rounded.toFixed(decimals === undefined ? 10 : decimals);
+  if (s.includes(".")) s = s.replace(/0+$/, "").replace(/\.$/, "");
+  if (s === "-0") s = "0";
+  return s;
+}
+
+/**
  * De-dupe key for an idempotent re-import: same symbol+side+qty+price+day means
  * the same trade. Lets us re-run an export without double-counting.
+ *
+ * Price is rounded to the cent and quantity is canonicalized so a manual entry
+ * (e.g. price 179.075) and a Robinhood row (179.08) for the same fill collapse
+ * to one key instead of double-counting the position. (Fix: 2026-09-30 — a
+ * half-cent price difference had let a duplicate NVDA buy through.)
  */
 export function tradeKey(t: {
   symbol: string;
@@ -269,5 +293,7 @@ export function tradeKey(t: {
   tradedAt: Date;
 }): string {
   const day = t.tradedAt.toISOString().slice(0, 10);
-  return `${t.symbol.toUpperCase()}|${t.side}|${t.quantity}|${t.price}|${day}`;
+  const qty = canonNum(t.quantity);
+  const price = canonNum(t.price, 2);
+  return `${t.symbol.toUpperCase()}|${t.side.toUpperCase()}|${qty}|${price}|${day}`;
 }
