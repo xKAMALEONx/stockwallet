@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { listSnapshots } from "@/lib/snapshots";
 import { buildCurve, type SnapshotPoint } from "@/lib/equity";
-import { money, percent, pnlColor } from "@/lib/format";
+import { percent, pnlColor } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 

@@ -14,6 +14,13 @@ export const dynamic = "force-dynamic";
 
 const DAY = 86400000;
 
+// Request-time clock read, kept out of the component body: this is a server
+// component that renders once per request, so "now" is a stable request value,
+// not a reactive one. (Also keeps the render lexically pure for the linter.)
+function requestNow(): number {
+  return Date.now();
+}
+
 export default async function CheckPage({
   searchParams,
 }: {
@@ -35,6 +42,8 @@ export default async function CheckPage({
     null;
 
   if (symbol) {
+    // Snapshot "now" once so the age/recency math is stable across this render.
+    const now = requestNow();
     const account = await getOrCreateDefaultAccount(session.sub);
     const [txns, journal] = await Promise.all([
       listTransactions(account.id),
@@ -74,9 +83,9 @@ export default async function CheckPage({
       ? Math.min(...buys.map((t) => t.tradedAt.getTime()))
       : null;
     const positionAgeDays =
-      earliest != null ? Math.floor((Date.now() - earliest) / DAY) : null;
+      earliest != null ? Math.floor((now - earliest) / DAY) : null;
 
-    const cutoff = Date.now() - 182 * DAY;
+    const cutoff = now - 182 * DAY;
     const recentTradeCount6mo = txns.filter(
       (t) => t.symbol === symbol && t.tradedAt.getTime() >= cutoff,
     ).length;
@@ -390,13 +399,14 @@ function Meter({
   boundaries: number[];
 }) {
   const pct = value == null ? null : Math.max(0, Math.min(100, (value / max) * 100));
-  let prev = 0;
+  // Each zone spans from the previous zone's boundary to its own — derive the
+  // width from the segment size directly, no render-time mutation.
   return (
     <div className="relative h-3 w-full overflow-hidden rounded-full bg-zinc-800">
       <div className="flex h-full w-full">
         {zones.map((z, i) => {
-          const w = ((z.upTo - prev) / max) * 100;
-          prev = z.upTo;
+          const start = i === 0 ? 0 : zones[i - 1].upTo;
+          const w = ((z.upTo - start) / max) * 100;
           return <div key={i} className={z.cls} style={{ width: `${w}%` }} />;
         })}
       </div>

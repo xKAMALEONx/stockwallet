@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { Prisma } from "@prisma/client";
 import {
   eachDay,
   positionsAsOf,
@@ -11,8 +10,6 @@ import {
   type DatedDividend,
 } from "./backfill";
 import type { EngineTxn } from "./portfolio";
-
-const Dec = Prisma.Decimal;
 
 function buy(symbol: string, qty: number, price: number, at: string): EngineTxn {
   return { symbol, side: "BUY", quantity: qty, price, fees: 0, tradedAt: new Date(at) };

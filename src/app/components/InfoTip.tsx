@@ -13,9 +13,27 @@
 // bubble is aria-describedby-linked, and Escape closes it. Hover opens it on
 // pointer devices; tap toggles it on touch.
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import { GLOSSARY } from "@/lib/glossary";
+
+// "Are we on the client?" without an effect-driven setState: the server snapshot
+// is false, the client snapshot true, so the portal only mounts after hydration.
+const emptySubscribe = () => () => {};
+function useMounted(): boolean {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true, // client
+    () => false, // server
+  );
+}
 
 const BUBBLE_W = 288; // w-72 — roomy enough for a fuller breakdown + lingo line
 const GAP = 8; // space between icon and bubble
@@ -25,13 +43,11 @@ type Pos = { top: number; left: number; below: boolean };
 export default function InfoTip({ term }: { term: string }) {
   const entry = GLOSSARY[term];
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [pos, setPos] = useState<Pos | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const wrapRef = useRef<HTMLSpanElement>(null);
   const bubbleId = useId();
-
-  useEffect(() => setMounted(true), []);
 
   // Measure the button and place the bubble in viewport (fixed) coordinates.
   useLayoutEffect(() => {
