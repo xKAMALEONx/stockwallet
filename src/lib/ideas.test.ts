@@ -25,7 +25,17 @@ function idea(
   kind: "etf" | "stock",
   fitScore: number | null,
 ): Idea {
-  return { symbol, name: symbol, kind, sector, why: "", stats: stats(fitScore) };
+  return {
+    symbol,
+    name: symbol,
+    kind,
+    sector,
+    why: "",
+    stats: stats(fitScore),
+    breakdown: null, // fallback path: rank by stats.fitScore
+    sectorTone: "neutral",
+    sectorReturnPct: null,
+  };
 }
 
 describe("findGapSectors", () => {
@@ -101,6 +111,32 @@ describe("rankIdeas", () => {
       [
         idea("VHT", "Health Care", "etf", null),
         idea("VOO", BROAD_MARKET, "etf", 40),
+      ],
+      gap,
+      new Set(),
+    );
+    expect(ranked[0].symbol).toBe("VOO");
+  });
+
+  it("prefers the buddy-system composite score over raw fit when present", () => {
+    // VHT has a higher raw fit (90) but a low composite (e.g. down-ranked
+    // for a clash); VOO has lower fit (60) but a stronger composite. The
+    // composite should win.
+    const withScore = (i: Idea, score: number): Idea => ({
+      ...i,
+      breakdown: {
+        score,
+        freshScore: score,
+        proofScore: i.stats?.fitScore ?? 50,
+        conflict: false,
+        conflictNote: null,
+        parts: [],
+      },
+    });
+    const ranked = rankIdeas(
+      [
+        withScore(idea("VHT", "Health Care", "etf", 90), 40),
+        withScore(idea("VOO", BROAD_MARKET, "etf", 60), 75),
       ],
       gap,
       new Set(),

@@ -1,4 +1,5 @@
 import type { BacktestStats } from "@/lib/backtest";
+import type { ScoreBreakdown } from "@/lib/idea-score";
 
 // Diversification Ideas catalog + gap logic. Pure & testable. The engine looks
 // at which sectors a portfolio is MISSING or thin on, then proposes evidence-
@@ -19,8 +20,18 @@ export type IdeaSeed = {
   why: string; // plain-English reason it suits a long-term plan
 };
 
-// An idea with its historical behavior attached (from Alpaca backtest).
-export type Idea = IdeaSeed & { stats: BacktestStats | null };
+// An idea with its historical behavior attached (from Alpaca backtest), plus the
+// buddy-system read: fresh signals (sector momentum, and — for the example
+// stocks — analyst/news) blended with the backtested proof, with a clash flag.
+// `breakdown` is null only when scoring couldn't run (history off).
+export type Idea = IdeaSeed & {
+  stats: BacktestStats | null;
+  breakdown: ScoreBreakdown | null;
+  // The gap-sector's current momentum read, so the card can show the tailwind
+  // or headwind the ETF is stepping into.
+  sectorTone: "pos" | "neg" | "neutral";
+  sectorReturnPct: number | null;
+};
 
 export const BROAD_MARKET = "Broad Market";
 
@@ -139,8 +150,11 @@ export function findGapSectors(
 
 /**
  * Rank ideas for the gap sectors. ETFs sort ahead of individual stocks within
- * the same relevance; within a kind, higher fitScore first (nulls last).
- * `heldSymbols` are excluded so we never suggest something already owned.
+ * the same relevance (the recommended vehicle for a foundation). Within a kind,
+ * the buddy-system composite score decides — it already blends fresh signals
+ * with backtested proof and has down-ranked any clash. Falls back to raw
+ * fitScore when scoring is unavailable (history off). `heldSymbols` are excluded
+ * so we never suggest something already owned.
  */
 export function rankIdeas(
   ideas: Idea[],
@@ -156,8 +170,8 @@ export function rankIdeas(
     .sort((a, b) => {
       // ETFs first (the recommended vehicle).
       if (a.kind !== b.kind) return a.kind === "etf" ? -1 : 1;
-      const sa = a.stats?.fitScore ?? -1;
-      const sb = b.stats?.fitScore ?? -1;
+      const sa = a.breakdown?.score ?? a.stats?.fitScore ?? -1;
+      const sb = b.breakdown?.score ?? b.stats?.fitScore ?? -1;
       return sb - sa;
     });
 }

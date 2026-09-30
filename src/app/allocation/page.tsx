@@ -16,6 +16,7 @@ import {
   historyEnabled,
 } from "@/lib/ideas-source";
 import type { Idea } from "@/lib/ideas";
+import { scoreTier } from "@/lib/idea-score";
 import { addWatch } from "@/app/watchlist-actions";
 import { money } from "@/lib/format";
 
@@ -239,9 +240,11 @@ export default async function Allocation() {
                   </h2>
                   <p className="text-xs text-zinc-500">
                     Sectors you&apos;re light on, and evidence-backed ways to
-                    fill the gap. Ranked by long-term fit — steady compounding
-                    over flashy movers. ETFs first (broad, cheap, diversified);
-                    a few stocks shown as examples.
+                    fill the gap. Each pairs the sector&apos;s current momentum
+                    with its backtested track record — ranked for steady
+                    compounding, and any clash between the two is flagged and
+                    down-ranked. ETFs first (broad, cheap, diversified); a few
+                    stocks shown as examples.
                   </p>
                 </div>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -274,23 +277,38 @@ export default async function Allocation() {
 
 function IdeaCard({ idea }: { idea: Idea }) {
   const s = idea.stats;
+  const b = idea.breakdown;
   const fit = s?.fitScore ?? null;
+  // Prefer the buddy-system composite; fall back to raw fit when scoring is off.
+  const headline = b?.score ?? fit;
+  const tier = b ? scoreTier(b.score) : null;
 
-  // Fit-score tint: green = strong long-term profile, amber = middling.
-  const fitTone =
-    fit == null
+  // Score tint: green = strong, sky = middling, amber = weak / no data.
+  const scoreTone =
+    headline == null
       ? "border-zinc-700 text-zinc-400"
-      : fit >= 65
+      : headline >= 65
         ? "border-emerald-800 bg-emerald-950/40 text-emerald-300"
-        : fit >= 45
+        : headline >= 45
           ? "border-sky-800 bg-sky-950/30 text-sky-300"
           : "border-amber-800 bg-amber-950/30 text-amber-300";
 
   const stat = (v: number | null, suffix = "%", digits = 1) =>
     v == null ? "—" : `${v.toFixed(digits)}${suffix}`;
 
+  const sectorToneClass =
+    idea.sectorTone === "pos"
+      ? "border-emerald-800 bg-emerald-950/40 text-emerald-300"
+      : idea.sectorTone === "neg"
+        ? "border-red-900 bg-red-950/40 text-red-300"
+        : "border-zinc-700 bg-zinc-900 text-zinc-400";
+
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+    <div
+      className={`flex flex-col gap-2 rounded-lg border bg-zinc-900/40 p-4 ${
+        b?.conflict ? "border-amber-800/60" : "border-zinc-800"
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <span className="text-base font-bold text-emerald-400">
@@ -307,17 +325,66 @@ function IdeaCard({ idea }: { idea: Idea }) {
           </span>
           <p className="mt-0.5 text-xs text-zinc-400">{idea.name}</p>
         </div>
-        {fit != null && (
+        {headline != null && (
           <span
-            className={`shrink-0 rounded-md border px-2 py-1 text-center text-xs ${fitTone}`}
+            className={`shrink-0 rounded-md border px-2 py-1 text-center text-xs ${scoreTone}`}
           >
-            <span className="block text-sm font-bold">{fit.toFixed(0)}</span>
-            <span className="flex items-center justify-center text-[9px] uppercase tracking-wide opacity-80">
-              fit<InfoTip term="fit" />
+            <span className="block text-sm font-bold">
+              {headline.toFixed(0)}
             </span>
+            <span className="flex items-center justify-center text-[9px] uppercase tracking-wide opacity-80">
+              {b ? "score" : "fit"}
+              <InfoTip term={b ? "idea-score" : "fit"} />
+            </span>
+            {b && (
+              <span className="mt-0.5 flex justify-center gap-1 text-[9px] text-zinc-500">
+                <span title="Sector momentum + fresh signals">
+                  now {b.freshScore.toFixed(0)}
+                </span>
+                <span title="Backtested proof">
+                  proof {b.proofScore.toFixed(0)}
+                </span>
+              </span>
+            )}
           </span>
         )}
       </div>
+
+      {/* Tier + sector momentum chips. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {tier && (
+          <span
+            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] ${scoreTone}`}
+          >
+            {tier.label}
+          </span>
+        )}
+        {idea.sectorReturnPct != null && (
+          <span
+            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] ${sectorToneClass}`}
+          >
+            {idea.sectorTone === "pos"
+              ? "Hot sector"
+              : idea.sectorTone === "neg"
+                ? "Cold sector"
+                : "Sector"}{" "}
+            {idea.sectorReturnPct > 0 ? "+" : ""}
+            {idea.sectorReturnPct.toFixed(1)}%
+            <InfoTip term="sector-momentum" />
+          </span>
+        )}
+      </div>
+
+      {/* Conflict flag — shown, not hidden (already down-ranked by the scorer). */}
+      {b?.conflict && b.conflictNote && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-[11px] text-amber-200">
+          <span className="mt-px">⚠️</span>
+          <span>
+            <span className="font-medium">Signals clash</span>
+            <InfoTip term="conflict" /> — {b.conflictNote}
+          </span>
+        </div>
+      )}
 
       <p className="text-xs leading-5 text-zinc-300">
         <span className="text-zinc-500">Fills:</span> {idea.sector}. {idea.why}
