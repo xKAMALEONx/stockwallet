@@ -166,21 +166,37 @@ enum Verdict {
   WRONG
 }
 
+// A Bet Journal entry is one of two kinds:
+//   WATCH      — a simple "keeping my eye on this" note. Just symbol + note.
+//   PROJECTION — a tracked pick with the system's read baked in: entry price,
+//                a target to reach over `horizonYears`, and the projected CAGR
+//                at log time so we can grade whether it's pacing to plan.
+enum JournalKind {
+  WATCH
+  PROJECTION
+}
+
 model JournalEntry {
-  id          String          @id @default(cuid())
-  userId      String
-  symbol      String
-  thesis      String
-  direction   ThesisDirection @default(BULL)
-  entryPrice  Decimal?        @db.Decimal(20, 8) // price snapshot when logged
-  targetPrice Decimal?        @db.Decimal(20, 8)
-  timeframe   DateTime? // optional "by when"
-  conviction  Conviction      @default(MEDIUM)
-  status      ThesisStatus    @default(OPEN)
-  verdict     Verdict? // set when graded (also closes it)
-  createdAt   DateTime        @default(now())
-  resolvedAt  DateTime?
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String          @id @default(cuid())
+  userId        String
+  symbol        String
+  kind          JournalKind     @default(PROJECTION)
+  note          String? // WATCH: the one-liner. PROJECTION: optional reasoning.
+  direction     ThesisDirection @default(BULL)
+  conviction    Conviction      @default(MEDIUM)
+  entryPrice    Decimal?        @db.Decimal(20, 8) // price snapshot when logged
+  targetPrice   Decimal?        @db.Decimal(20, 8)
+  horizonYears  Int? // PROJECTION: years to reach the target
+  projectedCagr Decimal?        @db.Decimal(10, 4) // % per year the projection assumed
+  createdAt     DateTime        @default(now())
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Legacy columns kept for pre-rebuild rows (no longer written).
+  thesis     String?
+  timeframe  DateTime?
+  status     ThesisStatus @default(OPEN)
+  verdict    Verdict?
+  resolvedAt DateTime?
 
   @@index([userId, createdAt])
 }

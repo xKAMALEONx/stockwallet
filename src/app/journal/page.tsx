@@ -1,22 +1,34 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import InfoTip from "@/app/components/InfoTip";
 import { redirect } from "next/navigation";
+import InfoTip from "@/app/components/InfoTip";
 import { getSession } from "@/lib/session";
 import { listJournal } from "@/lib/journal";
 import { getQuoteData } from "@/lib/quotes";
-import {
-  createThesis,
-  gradeThesis,
-  reopenThesis,
-  deleteThesis,
-} from "@/app/journal-actions";
+import { logWatch, logProjection, deleteEntry } from "@/app/journal-actions";
+import { gradePace, type PaceGrade } from "@/lib/pace";
 import { money, percent, pnlColor } from "@/lib/format";
-import ThesisForm from "./thesis-form";
+import WatchForm from "./watch-form";
+import ProjectionForm from "./projection-form";
 
 export const dynamic = "force-dynamic";
 
 const CONV_LABEL = { LOW: "Low", MEDIUM: "Med", HIGH: "High" } as const;
+
+const GRADE_TONE: Record<PaceGrade, string> = {
+  AHEAD: "border-emerald-800 bg-emerald-950/40 text-emerald-300",
+  HIT: "border-emerald-700 bg-emerald-900/50 text-emerald-200",
+  ON_TRACK: "border-sky-800 bg-sky-950/40 text-sky-300",
+  BEHIND: "border-amber-800 bg-amber-950/40 text-amber-300",
+  UNKNOWN: "border-zinc-700 bg-zinc-900 text-zinc-400",
+};
+const GRADE_LABEL: Record<PaceGrade, string> = {
+  AHEAD: "Ahead",
+  HIT: "🎯 Hit",
+  ON_TRACK: "On track",
+  BEHIND: "Behind",
+  UNKNOWN: "—",
+};
 
 export default async function JournalPage({
   searchParams,
@@ -29,18 +41,39 @@ export default async function JournalPage({
 
   const entries = await listJournal(session.sub);
   const quoteData = await getQuoteData(entries.map((e) => e.symbol));
-  const today = new Date().toISOString().slice(0, 10);
-  const now = Date.now();
+  const now = new Date();
 
-  // Stats: overall + by conviction (only graded/closed entries count).
-  const graded = entries.filter((e) => e.verdict);
-  const rights = graded.filter((e) => e.verdict === "RIGHT").length;
-  const winRate = graded.length ? (rights / graded.length) * 100 : null;
-  const byConv = (["HIGH", "MEDIUM", "LOW"] as const).map((c) => {
-    const g = graded.filter((e) => e.conviction === c);
-    const r = g.filter((e) => e.verdict === "RIGHT").length;
-    return { c, total: g.length, rate: g.length ? (r / g.length) * 100 : null };
+  const watches = entries.filter((e) => e.kind === "WATCH");
+  const projections = entries.filter((e) => e.kind === "PROJECTION");
+
+  // Auto-grade every projection off live quotes (no manual right/wrong).
+  const graded = projections.map((e) => {
+    const price = quoteData[e.symbol]?.price ?? null;
+    const pace = gradePace({
+      entryPrice: e.entryPrice ? e.entryPrice.toNumber() : null,
+      targetPrice: e.targetPrice ? e.targetPrice.toNumber() : null,
+      currentPrice: price,
+      horizonYears: e.horizonYears ?? null,
+      loggedAt: e.createdAt,
+      now,
+      direction: e.direction,
+    });
+    return { e, price, pace };
   });
+
+  // Scoreboard: how the tracked picks are pacing right now.
+  const scored = graded.filter((g) => g.pace.grade !== "UNKNOWN");
+  const winning = scored.filter(
+    (g) => g.pace.grade === "AHEAD" || g.pace.grade === "HIT" || g.pace.grade === "ON_TRACK",
+  ).length;
+  const onTrackPct = scored.length ? (winning / scored.length) * 100 : null;
+  const avgReturn = (() => {
+    const vals = graded
+      .map((g) => g.pace.returnPct)
+      .filter((n): n is number => n != null);
+    if (!vals.length) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  })();
 
   return (
     <div className="min-h-full bg-zinc-950 font-sans text-zinc-100">
@@ -56,84 +89,58 @@ export default async function JournalPage({
         </header>
 
         <p className="rounded-md border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-xs leading-5 text-zinc-500">
-          Log <span className="text-zinc-300">why</span> you make a move, then grade
-          yourself when it plays out. The point is the feedback loop — find out which
-          of your reasons actually work.
+          Two lists. A <span className="text-zinc-300">watchlist</span> for stocks you&apos;re
+          eyeing, and <span className="text-zinc-300">projections</span> — pick a ticker and a
+          horizon, get a target, and let the system grade the pick against that plan on its own.
         </p>
 
-        {/* Stats */}
+        {error && <ErrorNote>{error}</ErrorNote>}
+
+        {/* Scoreboard */}
         <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Tile label="Ideas logged" term="ideas-logged" value={String(entries.length)} />
+          <Tile label="Watching" term="ideas-logged" value={String(watches.length)} />
+          <Tile label="Projections" value={String(projections.length)} />
           <Tile
-            label="Win rate"
+            label="On-track"
             term="win-rate"
-            value={winRate == null ? "—" : `${winRate.toFixed(0)}%`}
+            value={onTrackPct == null ? "—" : `${onTrackPct.toFixed(0)}%`}
             color={
-              winRate == null
+              onTrackPct == null
                 ? "text-zinc-100"
-                : winRate >= 50
+                : onTrackPct >= 50
                   ? "text-emerald-400"
-                  : "text-red-400"
+                  : "text-amber-400"
             }
           />
-          {byConv
-            .filter((b) => b.c !== "MEDIUM")
-            .map((b) => (
-              <Tile
-                key={b.c}
-                label={`${CONV_LABEL[b.c]}-conviction`}
-                term="conviction"
-                value={b.rate == null ? "—" : `${b.rate.toFixed(0)}%`}
-                color={
-                  b.rate == null
-                    ? "text-zinc-100"
-                    : b.rate >= 50
-                      ? "text-emerald-400"
-                      : "text-red-400"
-                }
-              />
-            ))}
+          <Tile
+            label="Avg return"
+            value={avgReturn == null ? "—" : percent(avgReturn)}
+            color={avgReturn == null ? "text-zinc-100" : pnlColor(avgReturn)}
+          />
         </section>
 
-        {/* Log a thesis */}
+        {/* ── Projections ─────────────────────────────────────────── */}
         <section className="flex flex-col gap-3">
-          <SectionTitle>Log a thesis</SectionTitle>
-          {error && <ErrorNote>{error}</ErrorNote>}
-          <ThesisForm action={createThesis} today={today} />
+          <SectionTitle>Project a pick</SectionTitle>
+          <ProjectionForm action={logProjection} />
         </section>
 
-        {/* Entries */}
         <section className="flex flex-col gap-3">
-          <SectionTitle>Your theses</SectionTitle>
-          {entries.length === 0 ? (
-            <Empty>No theses logged yet. Log your first one above.</Empty>
+          <SectionTitle>Tracked picks</SectionTitle>
+          {graded.length === 0 ? (
+            <Empty>No projections yet. Analyze a ticker above and track it.</Empty>
           ) : (
             <div className="flex flex-col gap-3">
-              {entries.map((e) => {
-                const price = quoteData[e.symbol]?.price ?? null;
-                const target = e.targetPrice ? e.targetPrice.toNumber() : null;
+              {graded.map(({ e, price, pace }) => {
                 const entry = e.entryPrice ? e.entryPrice.toNumber() : null;
-                const targetHit =
-                  target != null && price != null
-                    ? e.direction === "BULL"
-                      ? price >= target
-                      : price <= target
-                    : null;
-                const expired = e.timeframe
-                  ? now > new Date(e.timeframe).getTime()
-                  : false;
-                const movePct =
-                  entry != null && price != null && entry !== 0
-                    ? ((price - entry) / entry) * 100
-                    : null;
-
+                const target = e.targetPrice ? e.targetPrice.toNumber() : null;
                 return (
                   <div
                     key={e.id}
                     className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-lg font-bold text-emerald-400">
                           {e.symbol}
                         </span>
@@ -147,67 +154,97 @@ export default async function JournalPage({
                           {e.direction === "BULL" ? "▲ Bullish" : "▼ Bearish"}
                         </span>
                         <Chip>{CONV_LABEL[e.conviction]} conviction</Chip>
-                        {e.status === "CLOSED" && e.verdict && (
-                          <Chip
-                            tone={e.verdict === "RIGHT" ? "pos" : "neg"}
-                          >
-                            {e.verdict === "RIGHT" ? "✓ Right" : "✗ Wrong"}
-                          </Chip>
+                        {e.horizonYears != null && (
+                          <Chip>{e.horizonYears}yr horizon</Chip>
                         )}
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${GRADE_TONE[pace.grade]}`}
+                        >
+                          {GRADE_LABEL[pace.grade]}
+                        </span>
                       </div>
                       <span className="text-xs text-zinc-600">
                         {e.createdAt.toISOString().slice(0, 10)}
                       </span>
                     </div>
 
-                    <p className="mt-2 text-sm text-zinc-300">{e.thesis}</p>
+                    {e.note && (
+                      <p className="mt-2 text-sm text-zinc-300">{e.note}</p>
+                    )}
+
+                    {/* Live auto-grade line */}
+                    <p className="mt-2 text-xs text-zinc-400">{pace.note}</p>
 
                     <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-zinc-400">
                       {entry != null && <span>Logged at {money(entry)}</span>}
                       {price != null && (
                         <span>
                           Now {money(price)}{" "}
-                          {movePct != null && (
-                            <span className={pnlColor(movePct)}>
-                              ({percent(movePct)})
+                          {pace.returnPct != null && (
+                            <span className={pnlColor(pace.returnPct)}>
+                              ({percent(pace.returnPct)})
                             </span>
                           )}
                         </span>
                       )}
-                      {target != null && (
-                        <span>
-                          Target {money(target)}{" "}
-                          {targetHit === true && (
-                            <span className="text-emerald-400">✓ hit</span>
-                          )}
-                          {targetHit === false && (
-                            <span className="text-zinc-500">not yet</span>
-                          )}
-                        </span>
-                      )}
-                      {e.timeframe && (
-                        <span className={expired ? "text-amber-400" : ""}>
-                          By {new Date(e.timeframe).toISOString().slice(0, 10)}
-                          {expired ? " (expired)" : ""}
-                        </span>
+                      {target != null && <span>Target {money(target)}</span>}
+                      {pace.expectedPrice != null && pace.grade !== "HIT" && (
+                        <span>On-pace {money(pace.expectedPrice)}</span>
                       )}
                     </div>
 
                     <div className="mt-3 flex gap-3 text-xs">
-                      {e.status === "OPEN" ? (
-                        <>
-                          <GradeButton id={e.id} verdict="RIGHT" label="✓ Right" tone="pos" />
-                          <GradeButton id={e.id} verdict="WRONG" label="✗ Wrong" tone="neg" />
-                        </>
-                      ) : (
-                        <form action={reopenThesis}>
-                          <input type="hidden" name="id" value={e.id} />
-                          <button className="text-zinc-400 underline hover:text-zinc-200">
-                            Reopen
-                          </button>
-                        </form>
+                      <form action={deleteEntry}>
+                        <input type="hidden" name="id" value={e.id} />
+                        <button className="text-red-400 underline hover:text-red-300">
+                          Delete
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* ── Watchlist ───────────────────────────────────────────── */}
+        <section className="flex flex-col gap-3">
+          <SectionTitle>Add to watchlist</SectionTitle>
+          <WatchForm action={logWatch} />
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <SectionTitle>Watching</SectionTitle>
+          {watches.length === 0 ? (
+            <Empty>Nothing on the watchlist yet. Jot down what you&apos;re eyeing.</Empty>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {watches.map((e) => {
+                const price = quoteData[e.symbol]?.price ?? null;
+                const entry = e.entryPrice ? e.entryPrice.toNumber() : null;
+                const drift =
+                  entry != null && price != null && entry !== 0
+                    ? ((price - entry) / entry) * 100
+                    : null;
+                return (
+                  <div
+                    key={e.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <span className="font-bold text-emerald-400">{e.symbol}</span>
+                      <span className="truncate text-sm text-zinc-300">{e.note}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-zinc-500">
+                      {entry != null && <span>Flagged {money(entry)}</span>}
+                      {drift != null && (
+                        <span className={pnlColor(drift)}>{percent(drift)}</span>
                       )}
-                      <form action={deleteThesis}>
+                      <span className="text-zinc-600">
+                        {e.createdAt.toISOString().slice(0, 10)}
+                      </span>
+                      <form action={deleteEntry}>
                         <input type="hidden" name="id" value={e.id} />
                         <button className="text-red-400 underline hover:text-red-300">
                           Delete
@@ -222,34 +259,6 @@ export default async function JournalPage({
         </section>
       </div>
     </div>
-  );
-}
-
-function GradeButton({
-  id,
-  verdict,
-  label,
-  tone,
-}: {
-  id: string;
-  verdict: "RIGHT" | "WRONG";
-  label: string;
-  tone: "pos" | "neg";
-}) {
-  return (
-    <form action={gradeThesis}>
-      <input type="hidden" name="id" value={id} />
-      <input type="hidden" name="verdict" value={verdict} />
-      <button
-        className={`rounded-md border px-2.5 py-1 font-medium ${
-          tone === "pos"
-            ? "border-emerald-800 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/40"
-            : "border-red-900 bg-red-950/40 text-red-300 hover:bg-red-900/40"
-        }`}
-      >
-        {label}
-      </button>
-    </form>
   );
 }
 
@@ -318,4 +327,3 @@ function Chip({
     </span>
   );
 }
-

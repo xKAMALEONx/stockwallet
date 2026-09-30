@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# StockWallet
 
-## Getting Started
+A full-stack web app for tracking a personal stock portfolio — transactions, dividends, a watchlist, price alerts, and a trade journal — with daily performance benchmarked against the S&P 500. Built and deployed as a personal-use application.
 
-First, run the development server:
+**Live:** https://stockwallet-po-1ed7.vercel.app *(opens to a login wall — it uses real authentication with two-factor login)*
+
+---
+
+## What it does
+
+- **Portfolio tracking** — Log buy/sell transactions and dividends; the app computes holdings, cost basis, and current value.
+- **Watchlist & trade journal** — Keep an eye on tickers you don't own yet and write notes on the trades you do make.
+- **Price alerts** — Set thresholds and get notified when a stock crosses them.
+- **Performance vs. the market** — A daily snapshot job records portfolio value and charts it against the S&P 500 over time.
+- **Allocation & ideas views** — See how the portfolio is split and surface potential ideas.
+
+## Tech stack
+
+| Layer | What I used |
+|-------|-------------|
+| Framework | Next.js 16 (App Router), React 19, TypeScript |
+| Database | Prisma ORM over a SQL database — 8 related data models |
+| Auth | Passwords hashed with **bcryptjs**, signed session tokens with **jose** (JWT), two-factor login with **otplib** (TOTP) + **qrcode** for setup |
+| Market data | External REST APIs pulled by scheduled backend jobs |
+| Hosting | Vercel — separate production and preview environments, secured API keys |
+
+## Notable engineering
+
+- **Authentication built from scratch.** No auth library — I hashed passwords, signed and verified session tokens, and implemented time-based one-time-password (TOTP) two-factor login with QR-code enrollment.
+- **Scheduled backend jobs.** Cron-triggered API routes pull live market data, evaluate price alerts, and snapshot daily portfolio value against the S&P 500 so performance can be charted over time.
+- **Single relational schema.** Eight Prisma models (users, holdings, transactions, dividends, watchlist items, alerts, journal entries, and daily snapshots) tie the whole app together.
+
+## Running locally
 
 ```bash
+npm install
+npx prisma generate
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Environment variables (database URL, `AUTH_SECRET`, and market-data API keys) go in a local `.env` file — it is git-ignored and never committed.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+*Personal project by [Jaime Leon](https://github.com/xKAMALEONx) — Computer Engineering student at UTEP.*
