@@ -87,11 +87,10 @@ export default function ProjectionForm({
       : null;
   const multiple = target != null && price ? round2(target / price) : null;
 
-  const amountNum = amount.trim() ? Number(amount) : null;
-  const shares =
-    amountNum != null && Number.isFinite(amountNum) && price
-      ? amountNum / price
-      : null;
+  const amountRaw = amount.trim() ? Number(amount) : null;
+  const amountNum =
+    amountRaw != null && Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : null;
+  const shares = amountNum != null && price ? amountNum / price : null;
   const projectedValue = shares != null && target != null ? round2(shares * target) : null;
   const profit = projectedValue != null && amountNum != null ? round2(projectedValue - amountNum) : null;
   const returnPct =
@@ -117,7 +116,12 @@ export default function ProjectionForm({
           <input
             value={symbol}
             onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-            onBlur={() => symbol && startTransition(() => void analyze())}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                startTransition(() => void analyze());
+              }
+            }}
             placeholder="AAPL"
             className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 uppercase text-zinc-100 outline-none focus:border-emerald-500"
           />
@@ -183,7 +187,7 @@ export default function ProjectionForm({
             <ReadTile
               label={`Target (${horizon}yr)`}
               term="proj-target"
-              value={target != null ? fmt(target) : "—"}
+              value={target != null ? `${fmt(target)}/sh` : "—"}
               sub={multiple != null ? `${multiple}× today` : undefined}
               subTerm="proj-multiple"
               tone="text-emerald-300"
