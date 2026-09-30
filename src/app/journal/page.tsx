@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import InfoTip from "@/app/components/InfoTip";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { listJournal } from "@/lib/journal";
@@ -62,9 +63,10 @@ export default async function JournalPage({
 
         {/* Stats */}
         <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Tile label="Ideas logged" value={String(entries.length)} />
+          <Tile label="Ideas logged" term="ideas-logged" value={String(entries.length)} />
           <Tile
             label="Win rate"
+            term="win-rate"
             value={winRate == null ? "—" : `${winRate.toFixed(0)}%`}
             color={
               winRate == null
@@ -80,6 +82,7 @@ export default async function JournalPage({
               <Tile
                 key={b.c}
                 label={`${CONV_LABEL[b.c]}-conviction`}
+                term="conviction"
                 value={b.rate == null ? "—" : `${b.rate.toFixed(0)}%`}
                 color={
                   b.rate == null
@@ -254,14 +257,19 @@ function Tile({
   label,
   value,
   color = "text-zinc-100",
+  term,
 }: {
   label: string;
   value: string;
   color?: string;
+  term?: string;
 }) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3">
-      <p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="flex items-center text-xs uppercase tracking-wide text-zinc-500">
+        {label}
+        {term && <InfoTip term={term} />}
+      </p>
       <p className={`mt-1 text-lg font-semibold ${color}`}>{value}</p>
     </div>
   );

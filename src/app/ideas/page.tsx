@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import InfoTip from "@/app/components/InfoTip";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import {
@@ -141,26 +142,31 @@ function IdeaCard({
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge tone={sent.tone}>News: {sent.label}</Badge>
-          <Badge tone={cons.tone}>Analysts: {cons.label}</Badge>
+          <Badge tone={sent.tone}>News: {sent.label}<InfoTip term="sentiment" /></Badge>
+          <Badge tone={cons.tone}>Analysts: {cons.label}<InfoTip term="consensus" /></Badge>
         </div>
       </div>
 
       {/* Long-term lens */}
-      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-zinc-400">
+      <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-zinc-400">
         {consensus && (
-          <span>
+          <span className="inline-flex items-center">
             Consensus: {consensus.strongBuy + consensus.buy} buy ·{" "}
             {consensus.hold} hold · {consensus.sell + consensus.strongSell} sell
+            <InfoTip term="consensus" />
           </span>
         )}
         {fundamentals?.peTTM != null && (
-          <span>P/E {fundamentals.peTTM.toFixed(1)}</span>
+          <span className="inline-flex items-center">
+            P/E {fundamentals.peTTM.toFixed(1)}
+            <InfoTip term="pe" />
+          </span>
         )}
         {fundamentals?.week52Low != null && fundamentals?.week52High != null && (
-          <span>
+          <span className="inline-flex items-center">
             52wk {money(fundamentals.week52Low)}–{money(fundamentals.week52High)}
             {rangePct != null && ` (${rangePct.toFixed(0)}% of range)`}
+            <InfoTip term="week-52" />
           </span>
         )}
       </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import InfoTip from "@/app/components/InfoTip";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { listSnapshots } from "@/lib/snapshots";
@@ -57,18 +58,21 @@ export default async function Performance() {
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Tile
                 label="Your Return"
+                term="your-return"
                 value={percent(curve.portfolioReturnPct)}
                 color={pnlColor(curve.portfolioReturnPct)}
                 hint="Total value incl. dividends"
               />
               <Tile
                 label="S&P 500 (SPY)"
+                term="spy-return"
                 value={percent(curve.spyReturnPct)}
                 color={pnlColor(curve.spyReturnPct)}
                 hint="Same window"
               />
               <Tile
                 label="vs. Index"
+                term="vs-index"
                 value={percent(curve.outperformancePct)}
                 color={pnlColor(curve.outperformancePct)}
                 hint={
@@ -224,15 +228,20 @@ function Tile({
   value,
   color = "text-zinc-100",
   hint,
+  term,
 }: {
   label: string;
   value: string;
   color?: string;
   hint?: string;
+  term?: string;
 }) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3">
-      <p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="flex items-center text-xs uppercase tracking-wide text-zinc-500">
+        {label}
+        {term && <InfoTip term={term} />}
+      </p>
       <p className={`mt-1 text-xl font-semibold ${color}`}>{value}</p>
       {hint && <p className="mt-0.5 text-[10px] text-zinc-600">{hint}</p>}
     </div>

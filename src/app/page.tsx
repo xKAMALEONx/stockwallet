@@ -1,5 +1,6 @@
 import type { ReactNode, InputHTMLAttributes } from "react";
 import Link from "next/link";
+import InfoTip from "@/app/components/InfoTip";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { logout } from "@/app/actions";
@@ -158,25 +159,29 @@ export default async function Dashboard({
 
         {/* Summary tiles */}
         <section className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <Tile label="Market Value" value={money(summary.totalMarketValue)} />
+          <Tile label="Market Value" term="market-value" value={money(summary.totalMarketValue)} />
           <Tile
             label="Unrealized P/L"
+            term="unrealized-pnl"
             value={signedMoney(summary.totalUnrealizedPnL)}
             color={pnlColor(summary.totalUnrealizedPnL)}
           />
-          <Tile label="Cost Basis" value={money(summary.totalCostBasis)} />
+          <Tile label="Cost Basis" term="cost-basis" value={money(summary.totalCostBasis)} />
           <Tile
             label="Realized P/L"
+            term="realized-pnl"
             value={signedMoney(summary.totalRealizedPnL)}
             color={pnlColor(summary.totalRealizedPnL)}
           />
           <Tile
             label="Dividend Income"
+            term="dividend-income"
             value={money(totalDividends)}
             color={totalDividends.gt(0) ? "text-emerald-400" : "text-zinc-100"}
           />
           <Tile
             label="Total Return"
+            term="total-return"
             value={signedMoney(totalRet)}
             color={pnlColor(totalRet)}
             hint="Price P/L + dividends"
@@ -200,15 +205,15 @@ export default async function Dashboard({
               <table className="w-full text-sm">
                 <thead className="bg-zinc-900/60 text-left text-xs uppercase tracking-wide text-zinc-500">
                   <tr>
-                    <Th>Symbol</Th>
-                    <Th right>Shares</Th>
-                    <Th right>Avg Cost</Th>
-                    <Th right>Cost Basis</Th>
-                    <Th right>Price</Th>
-                    <Th right>Day</Th>
-                    <Th right>Mkt Value</Th>
-                    <Th right>Income</Th>
-                    <Th right>Unrealized</Th>
+                    <Th term="symbol">Symbol</Th>
+                    <Th right term="shares">Shares</Th>
+                    <Th right term="avg-cost">Avg Cost</Th>
+                    <Th right term="cost-basis">Cost Basis</Th>
+                    <Th right term="price">Price</Th>
+                    <Th right term="day">Day</Th>
+                    <Th right term="market-value">Mkt Value</Th>
+                    <Th right term="income">Income</Th>
+                    <Th right term="unrealized-pnl">Unrealized</Th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
@@ -395,11 +400,11 @@ export default async function Dashboard({
                 <thead className="bg-zinc-900/60 text-left text-xs uppercase tracking-wide text-zinc-500">
                   <tr>
                     <Th>Date</Th>
-                    <Th>Symbol</Th>
-                    <Th>Side</Th>
-                    <Th right>Qty</Th>
-                    <Th right>Price</Th>
-                    <Th right>Fees</Th>
+                    <Th term="symbol">Symbol</Th>
+                    <Th term="side">Side</Th>
+                    <Th right term="quantity">Qty</Th>
+                    <Th right term="price">Price</Th>
+                    <Th right term="fees">Fees</Th>
                     <Th right>Actions</Th>
                   </tr>
                 </thead>
@@ -457,15 +462,20 @@ function Tile({
   value,
   color = "text-zinc-100",
   hint,
+  term,
 }: {
   label: string;
   value: string;
   color?: string;
   hint?: string;
+  term?: string;
 }) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3">
-      <p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="flex items-center text-xs uppercase tracking-wide text-zinc-500">
+        {label}
+        {term && <InfoTip term={term} />}
+      </p>
       <p className={`mt-1 text-lg font-semibold ${color}`}>{value}</p>
       {hint && <p className="mt-0.5 text-[10px] text-zinc-600">{hint}</p>}
     </div>
@@ -502,10 +512,21 @@ function TableWrap({ children }: { children: ReactNode }) {
   );
 }
 
-function Th({ children, right }: { children: ReactNode; right?: boolean }) {
+function Th({
+  children,
+  right,
+  term,
+}: {
+  children: ReactNode;
+  right?: boolean;
+  term?: string;
+}) {
   return (
     <th className={`px-3 py-2 font-medium ${right ? "text-right" : ""}`}>
-      {children}
+      <span className={`inline-flex items-center ${right ? "justify-end" : ""}`}>
+        {children}
+        {term && <InfoTip term={term} />}
+      </span>
     </th>
   );
 }

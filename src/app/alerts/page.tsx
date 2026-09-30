@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import InfoTip from "@/app/components/InfoTip";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { listAlerts } from "@/lib/alerts";
@@ -92,7 +93,11 @@ export default async function AlertsPage({
               <thead className="bg-zinc-900/60 text-left text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
                   <th className="px-3 py-2 font-medium">Ticker</th>
-                  <th className="px-3 py-2 font-medium">Condition</th>
+                  <th className="px-3 py-2 font-medium">
+                    <span className="inline-flex items-center">
+                      Condition<InfoTip term="condition" />
+                    </span>
+                  </th>
                   <th className="px-3 py-2 text-right font-medium">Target</th>
                   <th className="px-3 py-2 text-right font-medium">Now</th>
                   <th className="px-3 py-2 font-medium">Status</th>

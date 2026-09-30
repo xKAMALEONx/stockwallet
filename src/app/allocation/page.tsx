@@ -1,4 +1,5 @@
 import Link from "next/link";
+import InfoTip from "@/app/components/InfoTip";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { getOrCreateDefaultAccount, listTransactions } from "@/lib/trades";
@@ -174,10 +175,26 @@ export default async function Allocation() {
               <table className="w-full text-sm">
                 <thead className="bg-zinc-900/60 text-left text-xs uppercase tracking-wide text-zinc-500">
                   <tr>
-                    <th className="px-4 py-2.5">Sector</th>
-                    <th className="px-4 py-2.5 text-right">Weight</th>
-                    <th className="px-4 py-2.5 text-right">Market Value</th>
-                    <th className="px-4 py-2.5">Holdings</th>
+                    <th className="px-4 py-2.5">
+                      <span className="inline-flex items-center">
+                        Sector<InfoTip term="sector" />
+                      </span>
+                    </th>
+                    <th className="px-4 py-2.5 text-right">
+                      <span className="inline-flex items-center justify-end">
+                        Weight<InfoTip term="weight" />
+                      </span>
+                    </th>
+                    <th className="px-4 py-2.5 text-right">
+                      <span className="inline-flex items-center justify-end">
+                        Market Value<InfoTip term="market-value" />
+                      </span>
+                    </th>
+                    <th className="px-4 py-2.5">
+                      <span className="inline-flex items-center">
+                        Holdings<InfoTip term="holdings" />
+                      </span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
@@ -293,11 +310,10 @@ function IdeaCard({ idea }: { idea: Idea }) {
         {fit != null && (
           <span
             className={`shrink-0 rounded-md border px-2 py-1 text-center text-xs ${fitTone}`}
-            title="Long-term fit: risk-adjusted return, penalized for deep drawdowns. Not a prediction."
           >
             <span className="block text-sm font-bold">{fit.toFixed(0)}</span>
-            <span className="block text-[9px] uppercase tracking-wide opacity-80">
-              fit
+            <span className="flex items-center justify-center text-[9px] uppercase tracking-wide opacity-80">
+              fit<InfoTip term="fit" />
             </span>
           </span>
         )}
@@ -308,17 +324,20 @@ function IdeaCard({ idea }: { idea: Idea }) {
       </p>
 
       {s && s.annualizedPct != null && (
-        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-zinc-500">
-          <span title="Compound annual growth rate over the lookback window">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-zinc-500">
+          <span className="inline-flex items-center">
             CAGR{" "}
             <span className="text-zinc-300">{stat(s.annualizedPct)}</span>
+            <InfoTip term="cagr" />
           </span>
-          <span title="Annualized volatility — how bumpy the ride was">
+          <span className="inline-flex items-center">
             Vol <span className="text-zinc-300">{stat(s.volatilityPct)}</span>
+            <InfoTip term="volatility" />
           </span>
-          <span title="Worst peak-to-trough decline in the window">
+          <span className="inline-flex items-center">
             Max DD{" "}
             <span className="text-zinc-300">{stat(s.maxDrawdownPct)}</span>
+            <InfoTip term="max-drawdown" />
           </span>
           <span className="text-zinc-600">{s.years.toFixed(1)}yr history</span>
         </div>
