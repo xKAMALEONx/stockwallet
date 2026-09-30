@@ -145,6 +145,22 @@ describe("parseRobinhoodCsv — file-level", () => {
     expect(trades).toHaveLength(1);
   });
 
+  it("handles newlines inside quoted fields (real RH instrument wrap)", () => {
+    // Robinhood writes the instrument as "NVIDIA\nCUSIP: 67066G104" — the field
+    // spans two physical lines. The record splitter must not break there.
+    const text =
+      HEADER +
+      "\n" +
+      '"8/4/2025","8/4/2025","8/5/2025","NVDA","NVIDIA\nCUSIP: 67066G104","Buy","1.11685","$179.08","($200.00)"' +
+      "\n" +
+      '"8/21/2026","8/21/2026","8/24/2026","NVDA","NVIDIA\nCUSIP: 67066G104","Sell","0.162669","$215.16","$35.00"';
+    const { trades, error } = parseRobinhoodCsv(text);
+    expect(error).toBeNull();
+    expect(trades).toHaveLength(2);
+    expect(trades[0]).toMatchObject({ symbol: "NVDA", side: "BUY", quantity: "1.11685", price: "179.08" });
+    expect(trades[1]).toMatchObject({ symbol: "NVDA", side: "SELL", quantity: "0.162669", price: "215.16" });
+  });
+
   it("finds columns by name even if reordered", () => {
     const reordered =
       '"Trans Code","Instrument","Quantity","Price","Activity Date","Description"\n' +

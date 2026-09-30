@@ -101,13 +101,39 @@ export function parseCsvLine(line: string): string[] {
   return out;
 }
 
-/** Split raw file text into non-empty lines, tolerating CRLF and a trailing newline. */
+/**
+ * Split raw file text into CSV records, tolerating CRLF and a trailing newline.
+ *
+ * Quote-aware: Robinhood wraps some fields across physical lines (e.g. the
+ * Instrument description "NVIDIA\nCUSIP: 67066G104"), so a newline *inside* a
+ * quoted field must NOT end the record. We track quote state across the whole
+ * text and only break on newlines that fall outside quotes. "" is a legal
+ * escaped quote inside a quoted field and does not toggle state.
+ */
 function splitLines(text: string): string[] {
-  return text
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .split("\n")
-    .filter((l) => l.trim().length > 0);
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const records: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < normalized.length; i++) {
+    const ch = normalized[i];
+    if (ch === '"') {
+      if (inQuotes && normalized[i + 1] === '"') {
+        cur += '""';
+        i++; // consume the escaped quote pair whole
+        continue;
+      }
+      inQuotes = !inQuotes;
+      cur += ch;
+    } else if (ch === "\n" && !inQuotes) {
+      records.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur.length > 0) records.push(cur);
+  return records.filter((l) => l.trim().length > 0);
 }
 
 function classifyNonTrade(code: string): SkipReason {
