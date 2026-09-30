@@ -17,7 +17,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { GLOSSARY } from "@/lib/glossary";
 
-const BUBBLE_W = 224; // w-56
+const BUBBLE_W = 288; // w-72 — roomy enough for a fuller breakdown + lingo line
 const GAP = 8; // space between icon and bubble
 
 type Pos = { top: number; left: number; below: boolean };
@@ -118,10 +118,15 @@ export default function InfoTip({ term }: { term: string }) {
             }}
             className="z-50 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-left text-xs font-normal normal-case tracking-normal text-zinc-200 shadow-lg"
           >
-            <span className="block text-zinc-200">{entry.what}</span>
-            <span className="mt-1 block text-[11px] text-zinc-400">
+            <span className="block leading-5 text-zinc-200">{entry.what}</span>
+            <span className="mt-1.5 block text-[11px] leading-4 text-zinc-400">
               {entry.example}
             </span>
+            {entry.lingo && (
+              <span className="mt-2 block border-t border-zinc-800 pt-1.5 text-[11px] leading-4 text-emerald-400/90">
+                🗣️ Pros call it: <span className="text-emerald-300">{entry.lingo}</span>
+              </span>
+            )}
           </span>,
           document.body,
         )}

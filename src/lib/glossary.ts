@@ -10,6 +10,8 @@ export type GlossaryEntry = {
   what: string;
   /** A tiny, concrete number example. */
   example: string;
+  /** What a seasoned trader would call this — the lingo, so you pick it up. */
+  lingo?: string;
 };
 
 export const GLOSSARY: Record<string, GlossaryEntry> = {
@@ -107,12 +109,14 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     example: "Tech holdings: AAPL, NVDA.",
   },
   fit: {
-    what: "A 0–100 score for how well an idea fits long-term, steady investing — reward earned per unit of risk, with big crashes penalized. Not a prediction.",
+    what: "A 0–100 score for how well an idea fits long-term, steady investing — reward earned per unit of risk, with big crashes penalized. Higher = more return for less pain. Not a prediction.",
     example: "70 is a smoother compounder than 45.",
+    lingo: "risk-adjusted return (cousin of the Sharpe ratio)",
   },
   cagr: {
     what: "Compound annual growth rate — the smoothed yearly return if growth were perfectly even.",
     example: "10% CAGR ≈ doubling your money in ~7 years.",
+    lingo: "CAGR / annualized return",
   },
   volatility: {
     what: "How bumpy the ride is — how much the price swings around. Higher means bigger ups and downs.",
@@ -121,6 +125,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
   "max-drawdown": {
     what: "The worst peak-to-bottom drop it suffered in the window — the deepest pain you'd have sat through.",
     example: "-30% means it once fell 30% from a high.",
+    lingo: "max drawdown / max DD; \"how far underwater\"",
   },
 
   // ── Bet Journal ──────────────────────────────────────────────────
@@ -145,14 +150,58 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
   consensus: {
     what: "How Wall Street analysts rate the stock overall — how many say buy, hold, or sell.",
     example: "8 buy · 2 hold · 0 sell = broadly bullish.",
+    lingo: "the Street / analyst consensus rating",
   },
   pe: {
     what: "Price-to-earnings — the price you pay for each $1 the company earns a year. Rough gauge of how pricey a stock is.",
     example: "P/E 20 = $20 of price per $1 of yearly profit.",
+    lingo: "P/E / the multiple; \"trading at 20 times earnings\"",
   },
   "week-52": {
     what: "The lowest and highest price over the past year, and where today's price sits between them.",
     example: "90% of range = near its 12-month high.",
+  },
+
+  // ── Projection panel (the "what can I expect?" tool) ─────────────
+  "proj-rating": {
+    what: "A quick verdict on how good a long-term hold this looks like, based on how steadily it has grown vs. how violently it has crashed in the past. It's a summary of the fit score below — not a promise it'll keep doing it.",
+    example: "\"Strong long-term profile\" = smooth grower; \"Choppy\" = wild ride.",
+    lingo: "risk-adjusted quality / the setup",
+  },
+  "proj-direction": {
+    what: "Which way the system is leaning: Bullish means it expects the price to rise over your horizon, Bearish means fall. Here it comes from whether the tempered growth rate is positive.",
+    example: "▲ Bullish = betting it goes up; ▼ Bearish = betting it drops.",
+    lingo: "your bias / going long (bull) vs short (bear)",
+  },
+  "proj-conviction": {
+    what: "How much the system suggests you trust this pick — Low, Medium, or High. It's driven by the fit score and whether Wall Street analysts agree. Think of it as suggested position confidence, not a guarantee.",
+    example: "High = size it like you mean it; Low = keep it small.",
+    lingo: "conviction / how much size to put on",
+  },
+  "proj-target": {
+    what: "A price-per-share the stock could REACH by the end of your horizon IF it keeps compounding at the tempered growth rate. It's a price goal for ONE share, not money you receive and not a guarantee. You only realize it if you actually sell there.",
+    example: "Target $362 on a $187 share = the system's goal for that one share in your chosen years.",
+    lingo: "price target / PT",
+  },
+  "proj-multiple": {
+    what: "How many times bigger the target is than today's price. A shorthand for the whole gain in one number.",
+    example: "1.9× means the share would be worth almost double.",
+    lingo: "the multiple / a 2-bagger (2×), 3-bagger (3×)…",
+  },
+  "proj-money": {
+    what: "Plays your dollar amount through the projection: it buys fractional shares at today's price, then values those SAME shares at the target price. The (+$, +%) is the paper profit if the target is hit. Nothing is bought — it's a what-if, and only real if you invest and later sell there.",
+    example: "$100 at $187 buys 0.535 shares; at a $362 target that's ~$194.",
+    lingo: "projected P&L / unrealized gain",
+  },
+  "proj-cagr": {
+    what: "The tempered yearly growth rate the whole projection is built on. We take the stock's past annual pace, cap it, and shave it down (assume it cools as the company matures) so the target is grounded, not a fantasy. Everything compounds off this number.",
+    example: "18%/yr tempered means each year ≈ 1.18× the last.",
+    lingo: "projected CAGR / the compounding rate",
+  },
+  "proj-fair-value": {
+    what: "A rough estimate of what one share is actually WORTH based on the company's earnings, versus what it costs today. \"75% above fair value\" means the market price is well over that estimate — the growth is priced in, so it's pricier and riskier if growth slips.",
+    example: "Fair value $47 but trading at $187 → richly valued, priced for growth.",
+    lingo: "fair value / intrinsic value; trading rich vs cheap",
   },
 
   // ── Alerts ───────────────────────────────────────────────────────

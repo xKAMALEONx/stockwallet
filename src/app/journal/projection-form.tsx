@@ -11,6 +11,7 @@
 // you pick, so "over 4 years" really means 4 years.
 
 import { useState, useTransition } from "react";
+import InfoTip from "@/app/components/InfoTip";
 
 type FairValue = {
   fairValue: number | null;
@@ -161,14 +162,18 @@ export default function ProjectionForm({
       {sug && (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <ReadTile label="Rating" value={rating} />
+            <ReadTile label="Rating" term="proj-rating" value={rating} />
             <ReadTile
               label="Direction"
+              term="proj-direction"
               value={direction === "BULL" ? "▲ Bullish" : "▼ Bearish"}
               tone={direction === "BULL" ? "text-emerald-400" : "text-red-400"}
             />
             <div className="rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-zinc-500">Conviction</p>
+              <p className="flex items-center text-[10px] uppercase tracking-wide text-zinc-500">
+                Conviction
+                <InfoTip term="proj-conviction" />
+              </p>
               <span
                 className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${CONV_TONE[sug.conviction]}`}
               >
@@ -177,8 +182,10 @@ export default function ProjectionForm({
             </div>
             <ReadTile
               label={`Target (${horizon}yr)`}
+              term="proj-target"
               value={target != null ? fmt(target) : "—"}
               sub={multiple != null ? `${multiple}× today` : undefined}
+              subTerm="proj-multiple"
               tone="text-emerald-300"
             />
           </div>
@@ -186,6 +193,10 @@ export default function ProjectionForm({
           {/* Money projection */}
           {projectedValue != null && amountNum != null ? (
             <div className="rounded-md border border-indigo-900/40 bg-indigo-950/20 px-3 py-2.5 text-sm text-indigo-200/90">
+              <span className="mb-0.5 flex items-center text-[10px] uppercase tracking-wide text-indigo-300/70">
+                What your money could do
+                <InfoTip term="proj-money" />
+              </span>
               💵 Put in <strong>{fmt(amountNum)}</strong> today at {fmt(price!)} →
               about <strong className="text-indigo-200">{fmt(projectedValue)}</strong> in{" "}
               {horizon} years{" "}
@@ -205,7 +216,20 @@ export default function ProjectionForm({
           )}
 
           {/* Rationale + fair-value context */}
-          <p className="rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-xs leading-5 text-zinc-400">
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-xs leading-5 text-zinc-400">
+            <span className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] uppercase tracking-wide text-zinc-500">
+              <span className="flex items-center">
+                Why <InfoTip term="fit" />
+              </span>
+              <span className="flex items-center">
+                Growth rate <InfoTip term="proj-cagr" />
+              </span>
+              {sug.fair && sug.fair.method !== "none" && (
+                <span className="flex items-center">
+                  Fair value <InfoTip term="proj-fair-value" />
+                </span>
+              )}
+            </span>
             🐼 {sug.rationale}
             {sug.fair && sug.fair.method !== "none" && (
               <>
@@ -213,7 +237,7 @@ export default function ProjectionForm({
                 <span className="text-zinc-500">·</span> {sug.fair.rationale}
               </>
             )}
-          </p>
+          </div>
 
           {/* Log it — posts the chosen numbers to the server action. */}
           {target != null && (
@@ -250,18 +274,30 @@ function ReadTile({
   label,
   value,
   sub,
+  term,
+  subTerm,
   tone = "text-zinc-100",
 }: {
   label: string;
   value: string;
   sub?: string;
+  term?: string;
+  subTerm?: string;
   tone?: string;
 }) {
   return (
     <div className="rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-2">
-      <p className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="flex items-center text-[10px] uppercase tracking-wide text-zinc-500">
+        {label}
+        {term && <InfoTip term={term} />}
+      </p>
       <p className={`mt-1 text-sm font-semibold ${tone}`}>{value}</p>
-      {sub && <p className="text-[10px] text-zinc-600">{sub}</p>}
+      {sub && (
+        <p className="flex items-center text-[10px] text-zinc-600">
+          {sub}
+          {subTerm && <InfoTip term={subTerm} />}
+        </p>
+      )}
     </div>
   );
 }
