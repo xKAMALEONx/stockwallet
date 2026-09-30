@@ -60,6 +60,52 @@ export async function getConsensus(symbol: string): Promise<Consensus> {
   }
 }
 
+export type ConsensusTrend = {
+  /** Net bullishness now: (strongBuy+buy) - (sell+strongSell), latest month. */
+  scoreNow: number;
+  /** Same, one month prior (null if only one period available). */
+  scorePrev: number | null;
+  /** "up" if analysts got more bullish M/M, "down" if less, "flat" otherwise. */
+  direction: "up" | "down" | "flat";
+} | null;
+
+/**
+ * Direction of analyst sentiment over the last two months — a free-tier proxy
+ * for the premium upgrade/downgrade feed. Rising net-bullishness means the Street
+ * is warming up to the name (net upgrades); falling means cooling.
+ */
+export async function getConsensusTrend(symbol: string): Promise<ConsensusTrend> {
+  const key = process.env.FINNHUB_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch(
+      `https://finnhub.io/api/v1/stock/recommendation?symbol=${encodeURIComponent(symbol)}&token=${key}`,
+      { next: { revalidate: REVALIDATE } },
+    );
+    if (!res.ok) return null;
+    const arr = (await res.json()) as Array<{
+      strongBuy: number;
+      buy: number;
+      hold: number;
+      sell: number;
+      strongSell: number;
+    }>;
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    const net = (l: (typeof arr)[number]) =>
+      l.strongBuy + l.buy - (l.sell + l.strongSell);
+    const scoreNow = net(arr[0]);
+    const scorePrev = arr.length > 1 ? net(arr[1]) : null;
+    let direction: "up" | "down" | "flat" = "flat";
+    if (scorePrev !== null) {
+      if (scoreNow > scorePrev) direction = "up";
+      else if (scoreNow < scorePrev) direction = "down";
+    }
+    return { scoreNow, scorePrev, direction };
+  } catch {
+    return null;
+  }
+}
+
 export async function getFundamentals(symbol: string): Promise<Fundamentals> {
   const key = process.env.FINNHUB_API_KEY;
   if (!key) return null;

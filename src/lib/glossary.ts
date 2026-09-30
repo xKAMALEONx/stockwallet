@@ -204,6 +204,53 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     lingo: "fair value / intrinsic value; trading rich vs cheap",
   },
 
+  // ── Grow-the-Money Ideas (buddy system) ──────────────────────────
+  "idea-score": {
+    what: "One 0–100 number blending everything: fresh signals (news, analysts, earnings, insider buys, sector momentum, today's move) AND the backtested long-term track record. Tuned for steady long-term growth — durable compounders float up, hype-only names don't. Not a prediction.",
+    example: "72 = strong all-around fit; 45 = weak or conflicted.",
+    lingo: "the composite / conviction score",
+  },
+  "why-now": {
+    what: "The fresh-signal half of the score — what's happening RIGHT NOW: recent news mood, analyst stance and whether it's warming, last earnings beat/miss, insiders buying, sector momentum, today's move.",
+    example: "High 'why now' = lots of positive current momentum.",
+    lingo: "the catalyst / what's the story",
+  },
+  proof: {
+    what: "The backtested half — how this stock has ACTUALLY behaved over the past 3 years (steady growth vs. brutal crashes). It's the reality check on the hype: an idea has to earn its ranking with real history, not just a hot headline.",
+    example: "Proof 80 = a smooth long-term compounder historically.",
+    lingo: "the track record / the tape doesn't lie",
+  },
+  conflict: {
+    what: "When the fresh hype and the historical track record DISAGREE — e.g. hot news but an ugly crash history. We don't hide these; we flag them and push them down the list so you see the whole picture and weigh it yourself.",
+    example: "Hot news + rough history = flagged, ranked lower.",
+    lingo: "a value trap / a falling knife (hot but risky)",
+  },
+  "earnings-surprise": {
+    what: "Whether the company's latest quarterly profit BEAT or MISSED what Wall Street analysts expected. Consistent beats are a real bullish tell; repeated misses are a warning. Straight from the pros' estimates.",
+    example: "Beat est. +3.8% = earned 3.8% more than analysts forecast.",
+    lingo: "the print / beat-and-raise vs. a miss",
+  },
+  "earnings-radar": {
+    what: "How soon the company reports earnings next. Earnings day is the single biggest scheduled event that can swing a stock — worth knowing before you act, so a surprise doesn't blindside you.",
+    example: "Reports in 5 days = big move possible very soon.",
+    lingo: "earnings on deck / into the print",
+  },
+  insider: {
+    what: "Whether company insiders (executives, directors) have been BUYING their own stock with their own money recently. They know the business best, so open-market buying is a studied bullish signal. Routine selling is mostly noise.",
+    example: "3 insider buys = leadership betting on themselves.",
+    lingo: "smart money / insiders loading up",
+  },
+  "sector-momentum": {
+    what: "Whether the stock's sector (Tech, Energy, etc.) has been HOT or COLD lately, measured by its sector ETF's recent return. A tailwind helps; a headwind fights you. Shows where the money is flowing.",
+    example: "Hot sector +12% = the whole group is being bid up.",
+    lingo: "sector rotation / where the flows are going",
+  },
+  "consensus-trend": {
+    what: "Whether Wall Street is getting MORE or LESS bullish on the stock month-over-month — a free proxy for upgrades and downgrades. Rising means analysts are warming up.",
+    example: "▲ warming = net upgrades vs. last month.",
+    lingo: "upgrades/downgrades / the Street's re-rating",
+  },
+
   // ── Alerts ───────────────────────────────────────────────────────
   condition: {
     what: "What has to happen for the alert to fire — the price rising above, or falling below, your target.",

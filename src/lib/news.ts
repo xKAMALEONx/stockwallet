@@ -2,7 +2,10 @@ import "server-only";
 
 // News-driven idea discovery via Marketaux. Free tier returns 3 articles per
 // request, so we page a few times and aggregate ticker mentions + sentiment.
-// Cached ~6h to stay well within the 100 req/day budget.
+//
+// FRESHNESS (revamp 2026-09-30): scoped to the last 48h via `published_after`
+// and cached 1h, so "Ideas" reflects what's actually happening today rather than
+// stale headlines. Still well within the 100 req/day budget (PAGES calls/hour).
 
 export type NewsArticle = {
   title: string;
@@ -20,9 +23,17 @@ export type Idea = {
 
 const MIN_MATCH = 30; // relevance floor (universe whitelist already ensures quality)
 const PAGES = 8; // 8 * 3 = up to 24 recent articles about the universe
-const REVALIDATE = 21600; // 6h
+const REVALIDATE = 3600; // 1h — keep ideas current with the trading day
+const RECENCY_HOURS = 48; // only surface genuinely recent news
 const US_TICKER = /^[A-Z]{1,5}$/;
 const MAX_CANDIDATES = 20;
+
+/** ISO timestamp for the recency floor (now − RECENCY_HOURS). */
+function recencyFloor(): string {
+  return new Date(Date.now() - RECENCY_HOURS * 3600_000)
+    .toISOString()
+    .slice(0, 19); // Marketaux wants "YYYY-MM-DDTHH:mm:ss"
+}
 
 // Curated universe of quality US large/mid-caps. Discovery is scoped to these,
 // so only real, covered, quotable companies ever surface (no OTC/PR-wire noise).
@@ -59,10 +70,11 @@ export async function getNewsIdeas(): Promise<Idea[]> {
     { sentiments: number[]; articles: Map<string, NewsArticle> }
   >();
 
+  const after = recencyFloor();
   for (let page = 1; page <= PAGES; page++) {
     try {
       const res = await fetch(
-        `https://api.marketaux.com/v1/news/all?symbols=${UNIVERSE.join(",")}&filter_entities=true&language=en&limit=3&page=${page}&api_token=${key}`,
+        `https://api.marketaux.com/v1/news/all?symbols=${UNIVERSE.join(",")}&filter_entities=true&language=en&limit=3&page=${page}&published_after=${after}&api_token=${key}`,
         { next: { revalidate: REVALIDATE } },
       );
       if (!res.ok) break;
