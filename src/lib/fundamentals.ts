@@ -1,4 +1,5 @@
 import "server-only";
+import { finnhubFetch } from "@/lib/finnhub";
 
 // Long-term lens from Finnhub (free tier): analyst consensus + basic valuation.
 // Cached ~6h since these move slowly.
@@ -30,9 +31,9 @@ export async function getConsensus(symbol: string): Promise<Consensus> {
   const key = process.env.FINNHUB_API_KEY;
   if (!key) return null;
   try {
-    const res = await fetch(
+    const res = await finnhubFetch(
       `https://finnhub.io/api/v1/stock/recommendation?symbol=${encodeURIComponent(symbol)}&token=${key}`,
-      { next: { revalidate: REVALIDATE } },
+      { revalidate: REVALIDATE },
     );
     if (!res.ok) return null;
     const arr = (await res.json()) as Array<{
@@ -78,9 +79,9 @@ export async function getConsensusTrend(symbol: string): Promise<ConsensusTrend>
   const key = process.env.FINNHUB_API_KEY;
   if (!key) return null;
   try {
-    const res = await fetch(
+    const res = await finnhubFetch(
       `https://finnhub.io/api/v1/stock/recommendation?symbol=${encodeURIComponent(symbol)}&token=${key}`,
-      { next: { revalidate: REVALIDATE } },
+      { revalidate: REVALIDATE },
     );
     if (!res.ok) return null;
     const arr = (await res.json()) as Array<{
@@ -110,9 +111,9 @@ export async function getFundamentals(symbol: string): Promise<Fundamentals> {
   const key = process.env.FINNHUB_API_KEY;
   if (!key) return null;
   try {
-    const res = await fetch(
+    const res = await finnhubFetch(
       `https://finnhub.io/api/v1/stock/metric?symbol=${encodeURIComponent(symbol)}&metric=all&token=${key}`,
-      { next: { revalidate: REVALIDATE } },
+      { revalidate: REVALIDATE },
     );
     if (!res.ok) return null;
     const d = (await res.json()) as { metric?: Record<string, number> };

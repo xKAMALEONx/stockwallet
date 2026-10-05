@@ -1,4 +1,5 @@
 import "server-only";
+import { finnhubFetch } from "@/lib/finnhub";
 
 // Insider-activity signal from Finnhub (free tier: stock/insider-transactions).
 // When company insiders (officers, directors) BUY their own stock with their own
@@ -37,9 +38,9 @@ export async function getInsiderSignal(
   const key = process.env.FINNHUB_API_KEY;
   if (!key) return null;
   try {
-    const res = await fetch(
+    const res = await finnhubFetch(
       `https://finnhub.io/api/v1/stock/insider-transactions?symbol=${encodeURIComponent(symbol)}&token=${key}`,
-      { next: { revalidate: REVALIDATE } },
+      { revalidate: REVALIDATE },
     );
     if (!res.ok) return null;
     const data = (await res.json()) as { data?: RawInsiderRow[] };

@@ -1,4 +1,5 @@
 import "server-only";
+import { finnhubFetch } from "@/lib/finnhub";
 import { isCryptoSymbol } from "@/lib/quotes";
 import { CRYPTO_SECTOR, UNKNOWN_SECTOR } from "@/lib/sectors";
 
@@ -18,9 +19,9 @@ async function fetchIndustry(
   key: string,
 ): Promise<string | null> {
   try {
-    const res = await fetch(
+    const res = await finnhubFetch(
       `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${key}`,
-      { next: { revalidate: 86400 } },
+      { revalidate: 86400 },
     );
     if (!res.ok) return null;
     const d = (await res.json()) as { finnhubIndustry?: string };

@@ -1,4 +1,5 @@
 import "server-only";
+import { finnhubFetch } from "@/lib/finnhub";
 
 // Live quotes. Stocks come from Finnhub (/quote); crypto from CoinGecko
 // (Finnhub /quote is stocks-only). Both return price + day change %.
@@ -46,9 +47,9 @@ async function fetchStockQuote(
   key: string,
 ): Promise<Quote | undefined> {
   try {
-    const res = await fetch(
+    const res = await finnhubFetch(
       `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${key}`,
-      { next: { revalidate: 30 } },
+      { revalidate: 30 },
     );
     if (!res.ok) return undefined;
     const d = (await res.json()) as { c?: number; d?: number; dp?: number };

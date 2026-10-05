@@ -1,4 +1,5 @@
 import "server-only";
+import { finnhubFetch } from "@/lib/finnhub";
 
 // Wall-Street earnings signals from Finnhub (free tier):
 //   1. Recent earnings SURPRISE — did the company beat or miss analyst
@@ -45,9 +46,9 @@ export async function getEarningsSurprise(
   const key = process.env.FINNHUB_API_KEY;
   if (!key) return null;
   try {
-    const res = await fetch(
+    const res = await finnhubFetch(
       `https://finnhub.io/api/v1/stock/earnings?symbol=${encodeURIComponent(symbol)}&token=${key}`,
-      { next: { revalidate: REVALIDATE } },
+      { revalidate: REVALIDATE },
     );
     if (!res.ok) return null;
     const rows = (await res.json()) as RawEarnRow[];
@@ -93,9 +94,9 @@ export async function getUpcomingEarnings(
   const to = new Date(from.getTime() + windowDays * 86400000);
   const ymd = (d: Date) => d.toISOString().slice(0, 10);
   try {
-    const res = await fetch(
+    const res = await finnhubFetch(
       `https://finnhub.io/api/v1/calendar/earnings?from=${ymd(from)}&to=${ymd(to)}&symbol=${encodeURIComponent(symbol)}&token=${key}`,
-      { next: { revalidate: REVALIDATE } },
+      { revalidate: REVALIDATE },
     );
     if (!res.ok) return null;
     const data = (await res.json()) as { earningsCalendar?: RawCalRow[] };
