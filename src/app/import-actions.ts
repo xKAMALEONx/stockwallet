@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/dal";
 import { getOrCreateDefaultAccount } from "@/lib/trades";
 import {
   parseRobinhoodCsv,
@@ -49,8 +49,7 @@ export async function importRobinhood(
   _prev: ImportState,
   formData: FormData,
 ): Promise<ImportState> {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
   const confirming = String(formData.get("confirm") ?? "") === "1";
   const csv = await readCsv(formData);
@@ -71,28 +70,20 @@ export async function importRobinhood(
     };
   }
 
-  const account = await getOrCreateDefaultAccount(session!.sub);
+  const account = await getOrCreateDefaultAccount(user.id);
 
-  // Build the set of keys already in the ledger so re-imports don't double up.
+  // Preview counts come from existing keys, but the DB unique constraint on
+  // (accountId, importKey) is the real guarantee: even a double-clicked confirm
+  // can't insert a row twice. Build keys for display + per-row importKey.
   const existing = await prisma.transaction.findMany({
-    where: { accountId: account.id },
-    select: { symbol: true, side: true, quantity: true, price: true, tradedAt: true },
+    where: { accountId: account.id, importKey: { not: null } },
+    select: { importKey: true },
   });
-  const existingKeys = new Set(
-    existing.map((t) =>
-      tradeKey({
-        symbol: t.symbol,
-        side: t.side,
-        quantity: t.quantity.toString(),
-        price: t.price.toString(),
-        tradedAt: t.tradedAt,
-      }),
-    ),
-  );
+  const existingKeys = new Set(existing.map((t) => t.importKey as string));
 
-  // Also de-dupe within the file itself.
+  // De-dupe within the file itself for the preview; keep each fresh row's key.
   const seen = new Set<string>();
-  const fresh: ParsedRhTrade[] = [];
+  const fresh: { trade: ParsedRhTrade; key: string }[] = [];
   let duplicateCount = 0;
   for (const t of trades) {
     const key = tradeKey(t);
@@ -101,7 +92,7 @@ export async function importRobinhood(
       continue;
     }
     seen.add(key);
-    fresh.push(t);
+    fresh.push({ trade: t, key });
   }
 
   if (!confirming) {
@@ -111,7 +102,7 @@ export async function importRobinhood(
       newCount: fresh.length,
       duplicateCount,
       skippedSummary: skipped.length ? summarizeSkips(skipped) : undefined,
-      sample: fresh.slice(0, 8).map((t) => ({
+      sample: fresh.slice(0, 8).map(({ trade: t }) => ({
         symbol: t.symbol,
         side: t.side,
         quantity: t.quantity,
@@ -131,8 +122,11 @@ export async function importRobinhood(
     };
   }
 
-  await prisma.transaction.createMany({
-    data: fresh.map((t) => ({
+  // skipDuplicates + the (accountId, importKey) unique constraint make this
+  // idempotent: a concurrent/double confirm inserts each row at most once.
+  const result = await prisma.transaction.createMany({
+    skipDuplicates: true,
+    data: fresh.map(({ trade: t, key }) => ({
       accountId: account.id,
       symbol: t.symbol,
       side: t.side,
@@ -141,14 +135,15 @@ export async function importRobinhood(
       fees: new Prisma.Decimal(t.fees),
       tradedAt: t.tradedAt,
       note: t.note,
+      importKey: key,
     })),
   });
 
   revalidatePath("/");
   return {
     phase: "done",
-    imported: fresh.length,
-    duplicateCount,
-    message: `Imported ${fresh.length} trade${fresh.length === 1 ? "" : "s"} into your ledger.`,
+    imported: result.count,
+    duplicateCount: duplicateCount + (fresh.length - result.count),
+    message: `Imported ${result.count} trade${result.count === 1 ? "" : "s"} into your ledger.`,
   };
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { verifySession } from "@/lib/jwt";
+import { verifySession, SESSION_COOKIE } from "@/lib/jwt";
 
 // Public routes that don't require a session.
 // These API routes guard themselves with ?token=CRON_SECRET, so they bypass
@@ -20,12 +20,21 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = req.cookies.get("sw_session")?.value;
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? await verifySession(token) : null;
 
   if (!session) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  // Enroll-stage sessions (password set, 2FA not finished) may only reach
+  // /setup. Anything else bounces back there so 2FA can't be skipped. (/setup
+  // itself is in PUBLIC above, so it's already allowed.)
+  if (session.stage === "enroll") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/setup";
     return NextResponse.redirect(url);
   }
 

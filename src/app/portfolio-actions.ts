@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/dal";
+import { isValidSymbol, normalizeSymbol } from "@/lib/validation";
 import { getOrCreateDefaultAccount } from "@/lib/trades";
 
 type ParsedTrade = {
@@ -17,11 +18,9 @@ type ParsedTrade = {
   note: string | null;
 };
 
-const SYMBOL_RE = /^[A-Z][A-Z.\-]{0,9}$/;
-
 // Returns a parsed trade, or an error message string.
 function parseTrade(formData: FormData): ParsedTrade | string {
-  const symbol = String(formData.get("symbol") ?? "").trim().toUpperCase();
+  const symbol = normalizeSymbol(formData.get("symbol"));
   const side = String(formData.get("side")) === "SELL" ? "SELL" : "BUY";
   const quantity = String(formData.get("quantity") ?? "").trim();
   const price = String(formData.get("price") ?? "").trim();
@@ -29,7 +28,7 @@ function parseTrade(formData: FormData): ParsedTrade | string {
   const tradedAtRaw = String(formData.get("tradedAt") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim();
 
-  if (!SYMBOL_RE.test(symbol)) return "Enter a valid ticker (e.g. AAPL).";
+  if (!isValidSymbol(symbol)) return "Enter a valid ticker (e.g. AAPL).";
 
   const qtyNum = Number(quantity);
   if (!Number.isFinite(qtyNum) || qtyNum <= 0) return "Quantity must be greater than 0.";
@@ -48,15 +47,14 @@ function parseTrade(formData: FormData): ParsedTrade | string {
 }
 
 export async function createTrade(formData: FormData) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
   const parsed = parseTrade(formData);
   if (typeof parsed === "string") {
     redirect("/?error=" + encodeURIComponent(parsed));
   }
 
-  const account = await getOrCreateDefaultAccount(session!.sub);
+  const account = await getOrCreateDefaultAccount(user.id);
   await prisma.transaction.create({
     data: {
       accountId: account.id,
@@ -75,18 +73,17 @@ export async function createTrade(formData: FormData) {
 }
 
 export async function updateTrade(id: string, formData: FormData) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
   const parsed = parseTrade(formData);
   if (typeof parsed === "string") {
     redirect(`/trades/${id}/edit?error=` + encodeURIComponent(parsed));
   }
 
-  const account = await getOrCreateDefaultAccount(session!.sub);
-  // Ownership-scoped update.
-  await prisma.transaction.updateMany({
-    where: { id, accountId: account.id },
+  // Ownership-scoped by RELATION, so it keeps working if a second account is
+  // ever added and never creates an account as a side effect of editing.
+  const updated = await prisma.transaction.updateMany({
+    where: { id, account: { userId: user.id } },
     data: {
       symbol: parsed.symbol,
       side: parsed.side,
@@ -97,18 +94,21 @@ export async function updateTrade(id: string, formData: FormData) {
       note: parsed.note,
     },
   });
+  if (updated.count === 0) {
+    redirect(`/trades/${id}/edit?error=` + encodeURIComponent("That trade no longer exists."));
+  }
 
   revalidatePath("/");
   redirect("/");
 }
 
 export async function deleteTrade(formData: FormData) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
   const id = String(formData.get("id") ?? "");
-  const account = await getOrCreateDefaultAccount(session!.sub);
-  await prisma.transaction.deleteMany({ where: { id, accountId: account.id } });
+  await prisma.transaction.deleteMany({
+    where: { id, account: { userId: user.id } },
+  });
 
   revalidatePath("/");
   redirect("/");

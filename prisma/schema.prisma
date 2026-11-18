@@ -21,6 +21,11 @@ model User {
   passwordHash String
   totpSecret   String?
   totpEnabled  Boolean   @default(false)
+  // Auth hardening:
+  failedLogins   Int       @default(0) // consecutive failed logins; reset on success
+  lockedUntil    DateTime? // login rejected until this time (brute-force backoff)
+  lastTotpStep   BigInt? // highest TOTP time-step already consumed (replay guard)
+  sessionVersion Int       @default(0) // bump to invalidate all outstanding JWTs
   createdAt    DateTime  @default(now())
   accounts     Account[]
   watchlist    WatchlistItem[]
@@ -134,9 +139,11 @@ model Transaction {
   fees      Decimal   @default(0) @db.Decimal(20, 8)
   tradedAt  DateTime
   note      String?
+  importKey String? // stable key for CSV-imported rows; enforces idempotent imports
   createdAt DateTime  @default(now())
   account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
+  @@unique([accountId, importKey])
   @@index([accountId, symbol])
   @@index([accountId, tradedAt])
 }
@@ -181,6 +188,7 @@ model JournalEntry {
   userId        String
   symbol        String
   kind          JournalKind     @default(PROJECTION)
+  targetHitNotifiedAt DateTime? // set once we've nudged that this PROJECTION's target was reached (prevents repeat spam)
   note          String? // WATCH: the one-liner. PROJECTION: optional reasoning.
   direction     ThesisDirection @default(BULL)
   conviction    Conviction      @default(MEDIUM)

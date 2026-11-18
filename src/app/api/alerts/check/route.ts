@@ -2,100 +2,118 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getQuoteData } from "@/lib/quotes";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
 
 const DAY = 86400000;
 const THROTTLE = 12 * 3600 * 1000; // don't re-fire the same price alert within 12h
 
-// Called by the scheduler (not a browser). Auth via ?token=CRON_SECRET.
+// Called by the scheduler (not a browser). Auth via Authorization: Bearer <CRON_SECRET>.
 // Returns human-readable notifications to relay to Jaime.
 export async function GET(req: NextRequest) {
-  const token = req.nextUrl.searchParams.get("token");
-  if (!process.env.CRON_SECRET || token !== process.env.CRON_SECRET) {
+  if (!requireCronAuth(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const now = Date.now();
   const notifications: string[] = [];
+  const errors: string[] = [];
 
   const users = await prisma.user.findMany({ select: { id: true } });
 
   for (const u of users) {
-    const [alerts, openTheses, recentBuys, allTheses] = await Promise.all([
-      prisma.alert.findMany({ where: { userId: u.id, active: true } }),
-      prisma.journalEntry.findMany({ where: { userId: u.id, status: "OPEN" } }),
-      prisma.transaction.findMany({
-        where: {
-          account: { userId: u.id },
-          side: "BUY",
-          tradedAt: { gte: new Date(now - 21 * DAY) },
-        },
-      }),
-      prisma.journalEntry.findMany({
-        where: { userId: u.id },
-        select: { symbol: true },
-      }),
-    ]);
+    try {
+      const [alerts, openProjections, recentBuys, allTheses] = await Promise.all([
+        prisma.alert.findMany({ where: { userId: u.id, active: true } }),
+        // Only PROJECTION entries have targets to grade. WATCH entries are notes.
+        // targetHitNotifiedAt == null means we haven't nudged about this one yet.
+        prisma.journalEntry.findMany({
+          where: {
+            userId: u.id,
+            kind: "PROJECTION",
+            targetPrice: { not: null },
+            targetHitNotifiedAt: null,
+          },
+        }),
+        prisma.transaction.findMany({
+          where: {
+            account: { userId: u.id },
+            side: "BUY",
+            tradedAt: { gte: new Date(now - 21 * DAY) },
+          },
+        }),
+        prisma.journalEntry.findMany({
+          where: { userId: u.id },
+          select: { symbol: true },
+        }),
+      ]);
 
-    const symbols = [
-      ...new Set([
-        ...alerts.map((a) => a.symbol),
-        ...openTheses.map((t) => t.symbol),
-      ]),
-    ];
-    const quotes = await getQuoteData(symbols);
+      const symbols = [
+        ...new Set([
+          ...alerts.map((a) => a.symbol),
+          ...openProjections.map((t) => t.symbol),
+        ]),
+      ];
+      const quotes = await getQuoteData(symbols);
 
-    // Price alerts
-    for (const a of alerts) {
-      const price = quotes[a.symbol]?.price;
-      if (price == null) continue;
-      const target = a.targetPrice.toNumber();
-      const met = a.direction === "ABOVE" ? price >= target : price <= target;
-      const recentlyFired =
-        a.lastTriggeredAt &&
-        now - new Date(a.lastTriggeredAt).getTime() < THROTTLE;
-      if (met && !recentlyFired) {
-        notifications.push(
-          `🔔 ${a.symbol} ${a.direction === "ABOVE" ? "rose above" : "fell below"} $${target} — now $${price.toFixed(2)}.`,
-        );
-        await prisma.alert.update({
-          where: { id: a.id },
+      // Price alerts — claim each fire atomically so overlapping runs can't
+      // double-notify, and only push the message once the claim succeeds.
+      for (const a of alerts) {
+        const price = quotes[a.symbol]?.price;
+        if (price == null) continue;
+        const target = a.targetPrice.toNumber();
+        const met = a.direction === "ABOVE" ? price >= target : price <= target;
+        if (!met) continue;
+
+        const cutoff = new Date(now - THROTTLE);
+        const claimed = await prisma.alert.updateMany({
+          where: {
+            id: a.id,
+            active: true,
+            OR: [{ lastTriggeredAt: null }, { lastTriggeredAt: { lt: cutoff } }],
+          },
           data: { lastTriggeredAt: new Date() },
         });
+        if (claimed.count === 1) {
+          notifications.push(
+            `🔔 ${a.symbol} ${a.direction === "ABOVE" ? "rose above" : "fell below"} $${target} — now $${price.toFixed(2)}.`,
+          );
+        }
       }
-    }
 
-    // Theses ready to grade (target hit or timeframe expired)
-    for (const t of openTheses) {
-      const price = quotes[t.symbol]?.price ?? null;
-      const target = t.targetPrice ? t.targetPrice.toNumber() : null;
-      const targetHit =
-        target != null && price != null
-          ? t.direction === "BULL"
-            ? price >= target
-            : price <= target
-          : false;
-      const expired = t.timeframe ? now > new Date(t.timeframe).getTime() : false;
-      if (targetHit) {
-        notifications.push(
-          `🎯 ${t.symbol} hit your target${target != null ? ` ($${target})` : ""} — grade your thesis in the journal.`,
-        );
-      } else if (expired) {
-        notifications.push(
-          `⏰ Your ${t.symbol} thesis passed its timeframe — time to grade it (right or wrong?).`,
-        );
-      }
-    }
+      // Projections whose target has been reached — nudge once, ever, per entry.
+      for (const t of openProjections) {
+        const price = quotes[t.symbol]?.price ?? null;
+        const target = t.targetPrice ? t.targetPrice.toNumber() : null;
+        if (target == null || price == null) continue;
+        const targetHit = t.direction === "BULL" ? price >= target : price <= target;
+        if (!targetHit) continue;
 
-    // Recent buys with no logged thesis
-    const thesisSymbols = new Set(allTheses.map((t) => t.symbol));
-    for (const s of [...new Set(recentBuys.map((b) => b.symbol))]) {
-      if (!thesisSymbols.has(s)) {
-        notifications.push(
-          `📝 You bought ${s} recently but never logged a thesis — why did you buy it?`,
-        );
+        const claimed = await prisma.journalEntry.updateMany({
+          where: { id: t.id, targetHitNotifiedAt: null },
+          data: { targetHitNotifiedAt: new Date() },
+        });
+        if (claimed.count === 1) {
+          notifications.push(
+            `🎯 ${t.symbol} reached your $${target} target (now $${price.toFixed(2)}) — revisit your projection in the journal.`,
+          );
+        }
       }
+
+      // Recent buys with no logged thesis — once per cron window is fine here
+      // (these are nudges, not alerts), but only for symbols still un-journaled.
+      const thesisSymbols = new Set(allTheses.map((t) => t.symbol));
+      for (const s of [...new Set(recentBuys.map((b) => b.symbol))]) {
+        if (!thesisSymbols.has(s)) {
+          notifications.push(
+            `📝 You bought ${s} recently but never logged a thesis — why did you buy it?`,
+          );
+        }
+      }
+    } catch (e) {
+      // One user's failure shouldn't drop everyone else's notifications.
+      errors.push(`user ${u.id}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -103,5 +121,6 @@ export async function GET(req: NextRequest) {
     generatedAt: new Date().toISOString(),
     count: notifications.length,
     notifications,
+    ...(errors.length ? { errors } : {}),
   });
 }

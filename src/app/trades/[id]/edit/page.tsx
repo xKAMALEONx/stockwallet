@@ -1,7 +1,7 @@
 import type { InputHTMLAttributes } from "react";
 import Link from "next/link";
-import { redirect, notFound } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/dal";
 import { getOrCreateDefaultAccount, getTransaction } from "@/lib/trades";
 import { updateTrade } from "@/app/portfolio-actions";
 
@@ -17,10 +17,9 @@ export default async function EditTrade({
   const { id } = await params;
   const { error } = await searchParams;
 
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
-  const account = await getOrCreateDefaultAccount(session.sub);
+  const account = await getOrCreateDefaultAccount(user.id);
   const t = await getTransaction(account.id, id);
   if (!t) notFound();
 

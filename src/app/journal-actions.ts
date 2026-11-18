@@ -4,10 +4,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/dal";
+import { isValidSymbol, normalizeSymbol } from "@/lib/validation";
 import { getQuoteData } from "@/lib/quotes";
-
-const SYMBOL_RE = /^[A-Z][A-Z.\-]{0,9}$/;
 
 const dec = (n: number | null) =>
   n != null && Number.isFinite(n) && n > 0 ? new Prisma.Decimal(n) : null;
@@ -18,13 +17,12 @@ const fail = (msg: string): never =>
 // ── WATCH: dead-simple "keeping my eye on this" log ──────────────────
 // Just a ticker and a one-line note. Nothing else required.
 export async function logWatch(formData: FormData) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
-  const symbol = String(formData.get("symbol") ?? "").trim().toUpperCase();
+  const symbol = normalizeSymbol(formData.get("symbol"));
   const note = String(formData.get("note") ?? "").trim();
 
-  if (!SYMBOL_RE.test(symbol)) fail("Enter a valid ticker (e.g. AAPL).");
+  if (!isValidSymbol(symbol)) fail("Enter a valid ticker (e.g. AAPL).");
   if (note.length < 2) fail("Add a short note — what caught your eye?");
 
   // Snapshot the price so a watch can still show drift since you flagged it.
@@ -33,7 +31,7 @@ export async function logWatch(formData: FormData) {
 
   await prisma.journalEntry.create({
     data: {
-      userId: session!.sub,
+      userId: user.id,
       symbol,
       kind: "WATCH",
       note,
@@ -50,10 +48,9 @@ export async function logWatch(formData: FormData) {
 // posts the chosen numbers here. We re-snapshot the live price as the entry so
 // grading is measured from the moment of logging.
 export async function logProjection(formData: FormData) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
-  const symbol = String(formData.get("symbol") ?? "").trim().toUpperCase();
+  const symbol = normalizeSymbol(formData.get("symbol"));
   const note = String(formData.get("note") ?? "").trim();
   const direction: "BULL" | "BEAR" =
     String(formData.get("direction")) === "BEAR" ? "BEAR" : "BULL";
@@ -65,7 +62,7 @@ export async function logProjection(formData: FormData) {
   const horizonNum = Math.round(Number(String(formData.get("horizonYears") ?? "")));
   const cagrNum = Number(String(formData.get("projectedCagr") ?? ""));
 
-  if (!SYMBOL_RE.test(symbol)) fail("Enter a valid ticker (e.g. AAPL).");
+  if (!isValidSymbol(symbol)) fail("Enter a valid ticker (e.g. AAPL).");
   if (!Number.isFinite(targetNum) || targetNum <= 0)
     fail("Pick a projection first so there's a target to track.");
   if (!Number.isFinite(horizonNum) || horizonNum < 1 || horizonNum > 30)
@@ -76,7 +73,7 @@ export async function logProjection(formData: FormData) {
 
   await prisma.journalEntry.create({
     data: {
-      userId: session!.sub,
+      userId: user.id,
       symbol,
       kind: "PROJECTION",
       note: note || null,
@@ -95,11 +92,10 @@ export async function logProjection(formData: FormData) {
 }
 
 export async function deleteEntry(formData: FormData) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
   const id = String(formData.get("id") ?? "");
-  await prisma.journalEntry.deleteMany({ where: { id, userId: session!.sub } });
+  await prisma.journalEntry.deleteMany({ where: { id, userId: user.id } });
 
   revalidatePath("/journal");
   redirect("/journal");

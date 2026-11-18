@@ -1,7 +1,6 @@
 import Link from "next/link";
 import InfoTip from "@/app/components/InfoTip";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/dal";
 import { listSnapshots } from "@/lib/snapshots";
 import { buildCurve, type SnapshotPoint } from "@/lib/equity";
 import { percent, pnlColor } from "@/lib/format";
@@ -9,10 +8,9 @@ import { percent, pnlColor } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 export default async function Performance() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
-  const rows = await listSnapshots(session.sub);
+  const rows = await listSnapshots(user.id);
   const snapshots: SnapshotPoint[] = rows.map((r) => ({
     date: r.date.toISOString().slice(0, 10),
     marketValue: r.marketValue.toNumber(),

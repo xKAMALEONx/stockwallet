@@ -3,15 +3,15 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getQuoteData } from "@/lib/quotes";
 import { captureSnapshot } from "@/lib/snapshots";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
 
-// Called by the daily scheduler (not a browser). Auth via ?token=CRON_SECRET.
+// Called by the daily scheduler (not a browser). Auth via Authorization: Bearer <CRON_SECRET>.
 // Records one equity-curve snapshot per user (portfolio value + cost basis +
 // cumulative dividends + SPY benchmark). Idempotent per calendar day.
 export async function GET(req: NextRequest) {
-  const token = req.nextUrl.searchParams.get("token");
-  if (!process.env.CRON_SECRET || token !== process.env.CRON_SECRET) {
+  if (!requireCronAuth(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     spyPrice: spy,
+    spyOk: spy != null, // surface a failed SPY fetch so the benchmark gap is visible
     users: results.length,
     captured,
     results,
