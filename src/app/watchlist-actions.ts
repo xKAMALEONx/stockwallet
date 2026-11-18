@@ -4,24 +4,22 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
-
-const SYMBOL_RE = /^[A-Z][A-Z.\-]{0,9}$/;
+import { requireUser } from "@/lib/dal";
+import { isValidSymbol, normalizeSymbol } from "@/lib/validation";
 
 export async function addWatch(formData: FormData) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
-  const symbol = String(formData.get("symbol") ?? "").trim().toUpperCase();
+  const symbol = normalizeSymbol(formData.get("symbol"));
   const note = String(formData.get("note") ?? "").trim() || null;
 
-  if (!SYMBOL_RE.test(symbol)) {
+  if (!isValidSymbol(symbol)) {
     redirect("/?werror=" + encodeURIComponent("Enter a valid ticker (e.g. AAPL)."));
   }
 
   try {
     await prisma.watchlistItem.create({
-      data: { userId: session!.sub, symbol, note },
+      data: { userId: user.id, symbol, note },
     });
   } catch (e) {
     // Unique constraint → already on the watchlist; ignore, just refresh.
@@ -35,12 +33,11 @@ export async function addWatch(formData: FormData) {
 }
 
 export async function removeWatch(formData: FormData) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
   const id = String(formData.get("id") ?? "");
   await prisma.watchlistItem.deleteMany({
-    where: { id, userId: session!.sub },
+    where: { id, userId: user.id },
   });
 
   revalidatePath("/");

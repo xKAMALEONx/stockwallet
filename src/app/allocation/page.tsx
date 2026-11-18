@@ -1,7 +1,6 @@
 import Link from "next/link";
 import InfoTip from "@/app/components/InfoTip";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/dal";
 import { getOrCreateDefaultAccount, listTransactions } from "@/lib/trades";
 import { computePositions, withQuotes } from "@/lib/portfolio";
 import { getQuoteData } from "@/lib/quotes";
@@ -41,10 +40,9 @@ const COLORS = [
 ];
 
 export default async function Allocation() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
-  const account = await getOrCreateDefaultAccount(session.sub);
+  const account = await getOrCreateDefaultAccount(user.id);
   const txns = await listTransactions(account.id);
   const positions = computePositions(
     txns.map((t) => ({

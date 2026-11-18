@@ -4,44 +4,35 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/dal";
+import { isValidSymbol, normalizeSymbol, parseMoney, parseDate } from "@/lib/validation";
 
-const SYMBOL_RE = /^[A-Z][A-Z.\-]{0,9}$/;
-
-export async function listDividends(userId: string) {
-  return prisma.dividend.findMany({
-    where: { userId },
-    orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
-  });
-}
+// Read queries live in @/lib/dividends-source (server-only), not here.
 
 export async function createDividend(formData: FormData) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
-  const symbol = String(formData.get("symbol") ?? "").trim().toUpperCase();
-  const amountRaw = String(formData.get("amount") ?? "").trim();
-  const paidAtRaw = String(formData.get("paidAt") ?? "").trim();
+  const symbol = normalizeSymbol(formData.get("symbol"));
   const note = String(formData.get("note") ?? "").trim();
 
-  if (!SYMBOL_RE.test(symbol)) {
+  if (!isValidSymbol(symbol)) {
     redirect("/?derror=" + encodeURIComponent("Enter a valid ticker (e.g. AAPL)."));
   }
-  const amountNum = Number(amountRaw);
-  if (!Number.isFinite(amountNum) || amountNum <= 0) {
-    redirect("/?derror=" + encodeURIComponent("Dividend amount must be greater than 0."));
+  const amount = parseMoney(formData.get("amount"), "Dividend amount");
+  if (!amount.ok) {
+    redirect("/?derror=" + encodeURIComponent(amount.error));
   }
-  const paidAt = paidAtRaw ? new Date(paidAtRaw) : new Date();
-  if (Number.isNaN(paidAt.getTime())) {
-    redirect("/?derror=" + encodeURIComponent("Enter a valid payment date."));
+  const paid = parseDate(formData.get("paidAt"));
+  if (!paid.ok) {
+    redirect("/?derror=" + encodeURIComponent(paid.error));
   }
 
   await prisma.dividend.create({
     data: {
-      userId: session!.sub,
+      userId: user.id,
       symbol,
-      amount: new Prisma.Decimal(amountRaw),
-      paidAt,
+      amount: new Prisma.Decimal(amount.value),
+      paidAt: paid.value,
       note: note || null,
     },
   });
@@ -51,12 +42,11 @@ export async function createDividend(formData: FormData) {
 }
 
 export async function deleteDividend(formData: FormData) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
   const id = String(formData.get("id") ?? "");
   // Ownership-scoped delete.
-  await prisma.dividend.deleteMany({ where: { id, userId: session!.sub } });
+  await prisma.dividend.deleteMany({ where: { id, userId: user.id } });
 
   revalidatePath("/");
   redirect("/");

@@ -1,8 +1,7 @@
 import type { ReactNode, InputHTMLAttributes } from "react";
 import Link from "next/link";
 import InfoTip from "@/app/components/InfoTip";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/dal";
 import { logout } from "@/app/actions";
 import { getOrCreateDefaultAccount, listTransactions } from "@/lib/trades";
 import { listWatchlist } from "@/lib/watchlist";
@@ -11,11 +10,8 @@ import { getQuoteData, quotesEnabled } from "@/lib/quotes";
 import { getMarketStatus } from "@/lib/market";
 import { createTrade, deleteTrade } from "@/app/portfolio-actions";
 import { addWatch, removeWatch } from "@/app/watchlist-actions";
-import {
-  listDividends,
-  createDividend,
-  deleteDividend,
-} from "@/app/dividend-actions";
+import { createDividend, deleteDividend } from "@/app/dividend-actions";
+import { listDividends } from "@/lib/dividends-source";
 import { incomeBySymbol, totalIncome, totalReturn } from "@/lib/dividends";
 import {
   money,
@@ -33,14 +29,13 @@ export default async function Dashboard({
   searchParams: Promise<{ error?: string; werror?: string; derror?: string }>;
 }) {
   const { error, werror, derror } = await searchParams;
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
-  const account = await getOrCreateDefaultAccount(session.sub);
+  const account = await getOrCreateDefaultAccount(user.id);
   const [txns, watchlist, dividends] = await Promise.all([
     listTransactions(account.id),
-    listWatchlist(session.sub),
-    listDividends(session.sub),
+    listWatchlist(user.id),
+    listDividends(user.id),
   ]);
 
   const positions = computePositions(
@@ -146,7 +141,7 @@ export default async function Dashboard({
             >
               🏹 Import
             </Link>
-            <span>{session.username}</span>
+            <span>{user.username}</span>
             <form action={logout}>
               <button className="rounded-md border border-zinc-700 px-3 py-1.5 text-zinc-300 transition-colors hover:bg-zinc-800">
                 Sign out

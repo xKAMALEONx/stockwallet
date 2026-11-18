@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import InfoTip from "@/app/components/InfoTip";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/dal";
 import { listJournal } from "@/lib/journal";
 import { getQuoteData } from "@/lib/quotes";
 import { logWatch, logProjection, deleteEntry } from "@/app/journal-actions";
@@ -36,10 +36,9 @@ export default async function JournalPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
-  const entries = await listJournal(session.sub);
+  const entries = await listJournal(user.id);
   const quoteData = await getQuoteData(entries.map((e) => e.symbol));
   const now = new Date();
 

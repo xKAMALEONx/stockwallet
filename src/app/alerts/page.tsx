@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import InfoTip from "@/app/components/InfoTip";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/dal";
 import { listAlerts } from "@/lib/alerts";
 import { getQuoteData } from "@/lib/quotes";
 import { createAlert, deleteAlert } from "@/app/alert-actions";
@@ -16,10 +15,9 @@ export default async function AlertsPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
-  const alerts = await listAlerts(session.sub);
+  const alerts = await listAlerts(user.id);
   const quoteData = await getQuoteData(alerts.map((a) => a.symbol));
 
   return (

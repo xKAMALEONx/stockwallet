@@ -79,7 +79,9 @@ export async function captureSnapshot(
       marketValue: summary.totalMarketValue,
       costBasis: summary.totalCostBasis,
       dividendsTotal: divTotal,
-      spyPrice: spyPrice != null ? new Dec(spyPrice) : null,
+      // Only overwrite SPY when we actually have a price this run — a failed
+      // afternoon fetch must not wipe out a good morning benchmark value.
+      ...(spyPrice != null ? { spyPrice: new Dec(spyPrice) } : {}),
     },
   });
 

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/dal";
 import { getOrCreateDefaultAccount, listTransactions } from "@/lib/trades";
 import { listJournal } from "@/lib/journal";
 import { computePositions, withQuotes } from "@/lib/portfolio";
@@ -27,8 +26,7 @@ export default async function CheckPage({
   searchParams: Promise<{ symbol?: string; action?: string; amount?: string }>;
 }) {
   const sp = await searchParams;
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const user = await requireUser();
 
   const symbol = (sp.symbol ?? "").trim().toUpperCase();
   const action: "BUY" | "SELL" = sp.action === "SELL" ? "SELL" : "BUY";
@@ -44,10 +42,10 @@ export default async function CheckPage({
   if (symbol) {
     // Snapshot "now" once so the age/recency math is stable across this render.
     const now = requestNow();
-    const account = await getOrCreateDefaultAccount(session.sub);
+    const account = await getOrCreateDefaultAccount(user.id);
     const [txns, journal] = await Promise.all([
       listTransactions(account.id),
-      listJournal(session.sub),
+      listJournal(user.id),
     ]);
 
     const positions = computePositions(

@@ -16,6 +16,23 @@ export function verifyTotp(token: string, secret: string): boolean {
   }
 }
 
+/**
+ * Verify a code AND return which time-step it matched, so the caller can reject
+ * replays of an already-used step. Returns the absolute step number on success
+ * (authenticator epoch-step, monotonically increasing), or null on no match.
+ */
+export function verifyTotpStep(token: string, secret: string): number | null {
+  try {
+    const delta = authenticator.checkDelta(token, secret);
+    if (delta == null) return null;
+    const period = authenticator.options.step ?? 30;
+    const currentStep = Math.floor(Date.now() / 1000 / period);
+    return currentStep + delta;
+  } catch {
+    return null;
+  }
+}
+
 export async function totpQrDataUrl(
   username: string,
   secret: string,

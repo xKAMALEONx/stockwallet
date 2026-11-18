@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { backfillUser } from "@/lib/backfill-source";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // reconstruction fetches multi-year history
@@ -12,8 +13,7 @@ export const maxDuration = 60; // reconstruction fetches multi-year history
 // snapshot cron. Auth via ?token=CRON_SECRET (same as /api/snapshot); not a
 // public endpoint.
 export async function GET(req: NextRequest) {
-  const token = req.nextUrl.searchParams.get("token");
-  if (!process.env.CRON_SECRET || token !== process.env.CRON_SECRET) {
+  if (!requireCronAuth(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

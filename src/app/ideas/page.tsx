@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import InfoTip from "@/app/components/InfoTip";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/dal";
 import { getGrowIdeas, newsEnabled, type GrowIdea } from "@/lib/grow-ideas-source";
 import { sentimentLabel } from "@/lib/news";
 import { consensusLabel } from "@/lib/fundamentals";
@@ -24,8 +23,7 @@ function toneClass(tone: Tone): string {
 }
 
 export default async function IdeasPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  await requireUser();
 
   const { ideas, sectorMomentum } = await getGrowIdeas();
 
